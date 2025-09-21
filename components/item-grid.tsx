@@ -18,6 +18,9 @@ export function ItemGrid({ selectedTag }: ItemGridProps) {
   const [selectedItem, setSelectedItem] = useState<any>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
+  const currentUserEmail = typeof window !== "undefined" ? localStorage.getItem("userEmail") : null
+  const isAdmin = currentUserEmail === "admin@gmail.com"
+
   const items = [
     {
       id: 1,
@@ -26,6 +29,7 @@ export function ItemGrid({ selectedTag }: ItemGridProps) {
       category: "BloxFruit",
       image: "/placeholder-se2ao.png",
       seller: "ProTrader123",
+      sellerEmail: "protrader@example.com", // Add seller email for ownership check
     },
     {
       id: 2,
@@ -34,6 +38,7 @@ export function ItemGrid({ selectedTag }: ItemGridProps) {
       category: "Bloxmesh",
       image: "/placeholder-opw43.png",
       seller: "SwordMaster99",
+      sellerEmail: "swordmaster@example.com",
     },
     {
       id: 3,
@@ -42,6 +47,7 @@ export function ItemGrid({ selectedTag }: ItemGridProps) {
       category: "Bloxbox",
       image: "/placeholder-of0v7.png",
       seller: "BoxCollector",
+      sellerEmail: "boxcollector@example.com",
     },
     {
       id: 4,
@@ -50,6 +56,7 @@ export function ItemGrid({ selectedTag }: ItemGridProps) {
       category: "BloxFruit",
       image: "/placeholder-rjxxe.png",
       seller: "FruitDealer",
+      sellerEmail: "fruitdealer@example.com",
     },
     {
       id: 5,
@@ -58,6 +65,7 @@ export function ItemGrid({ selectedTag }: ItemGridProps) {
       category: "Bloxmesh",
       image: "/placeholder-mzkhc.png",
       seller: "MagicUser88",
+      sellerEmail: "magicuser@example.com",
     },
     {
       id: 6,
@@ -66,6 +74,7 @@ export function ItemGrid({ selectedTag }: ItemGridProps) {
       category: "Bloxbox",
       image: "/placeholder-m1f53.png",
       seller: "BoxHunter",
+      sellerEmail: "boxhunter@example.com",
     },
   ]
 
@@ -77,48 +86,73 @@ export function ItemGrid({ selectedTag }: ItemGridProps) {
     setShowConfirmDialog(true)
   }
 
+  const handleDeleteItem = (item: any, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (confirm(`Are you sure you want to delete "${item.name}"? This action cannot be undone.`)) {
+      alert("Item deleted successfully!")
+      // In real app, this would call an API to delete the item
+    }
+  }
+
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredItems.map((item) => (
-          <Card
-            key={item.id}
-            className="bg-card border-border hover:border-accent transition-colors cursor-pointer group"
-            onClick={() => router.push(`/item/${item.id}`)}
-          >
-            <CardContent className="p-4">
-              <div className="aspect-square bg-muted rounded-lg mb-3 overflow-hidden">
-                <img
-                  src={item.image || "/placeholder.svg"}
-                  alt={item.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                />
-              </div>
+        {filteredItems.map((item) => {
+          const isOwner = currentUserEmail === item.sellerEmail
+          const canEditDelete = isAdmin || isOwner
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-card-foreground font-semibold">{item.name}</h3>
-                  <Badge variant="secondary" className="bg-accent/20 text-accent text-xs">
-                    #{item.category}
-                  </Badge>
+          return (
+            <Card
+              key={item.id}
+              className="bg-card border-border hover:border-accent transition-colors cursor-pointer group"
+              onClick={() => router.push(`/item/${item.id}`)}
+            >
+              <CardContent className="p-4">
+                <div className="aspect-square bg-muted rounded-lg mb-3 overflow-hidden">
+                  <img
+                    src={item.image || "/placeholder.svg"}
+                    alt={item.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                  />
                 </div>
 
-                <p className="text-sm text-muted-foreground">by {item.seller}</p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-card-foreground font-semibold">{item.name}</h3>
+                    <Badge variant="secondary" className="bg-accent/20 text-accent text-xs">
+                      #{item.category}
+                    </Badge>
+                  </div>
 
-                <div className="flex items-center justify-between pt-2">
-                  <span className="text-lg font-bold text-accent">{item.price}</span>
-                  <Button
-                    size="sm"
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                    onClick={(e) => handleBuyClick(item, e)}
-                  >
-                    Buy Now
-                  </Button>
+                  <p className="text-sm text-muted-foreground">by {item.seller}</p>
+
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-lg font-bold text-accent">{item.price}</span>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                        onClick={(e) => handleBuyClick(item, e)}
+                      >
+                        Buy Now
+                      </Button>
+                      {canEditDelete && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white bg-transparent"
+                          onClick={(e) => handleDeleteItem(item, e)}
+                        >
+                          Delete
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       {filteredItems.length === 0 && (

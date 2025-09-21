@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,9 +9,12 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Edit, Save, X, Star, Package } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export function UserProfile() {
   const [isEditing, setIsEditing] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false) // Added admin state
+  const router = useRouter()
   const [userData, setUserData] = useState({
     name: "ProTrader123",
     email: "protrader@example.com",
@@ -25,6 +28,35 @@ export function UserProfile() {
 
   const [editData, setEditData] = useState(userData)
 
+  useEffect(() => {
+    const adminStatus = localStorage.getItem("isAdmin")
+    const currentUser = localStorage.getItem("currentUser")
+
+    if (adminStatus === "true") {
+      setIsAdmin(true)
+      setUserData((prev) => ({
+        ...prev,
+        name: "Admin",
+        email: "admin@gmail.com",
+        phone: "+1 (555) ADMIN",
+        totalTrades: 0,
+        successRate: 100,
+        rating: 5.0,
+        balance: "∞R$",
+      }))
+      setEditData((prev) => ({
+        ...prev,
+        name: "Admin",
+        email: "admin@gmail.com",
+        phone: "+1 (555) ADMIN",
+        totalTrades: 0,
+        successRate: 100,
+        rating: 5.0,
+        balance: "∞R$",
+      }))
+    }
+  }, [])
+
   const handleSave = () => {
     setUserData(editData)
     setIsEditing(false)
@@ -35,17 +67,14 @@ export function UserProfile() {
     setIsEditing(false)
   }
 
+  const handleAddRobux = () => {
+    router.push("/add-money")
+  }
+
   const recentItems = [
     { id: 1, name: "Dragon Fruit", price: "500R$", status: "sold", date: "2 days ago" },
     { id: 2, name: "Shadow Sword", price: "750R$", status: "listed", date: "1 week ago" },
     { id: 3, name: "Golden Box", price: "1200R$", status: "sold", date: "2 weeks ago" },
-  ]
-
-  const achievements = [
-    { name: "First Sale", description: "Complete your first trade", earned: true },
-    { name: "Top Trader", description: "Complete 50 successful trades", earned: false },
-    { name: "Trusted Seller", description: "Maintain 95%+ rating", earned: true },
-    { name: "Big Spender", description: "Spend over 10,000R$", earned: false },
   ]
 
   return (
@@ -62,11 +91,15 @@ export function UserProfile() {
                   {userData.name.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <Badge className="bg-primary/20 text-primary mb-2">Verified Trader</Badge>
+              <Badge className={isAdmin ? "bg-red-500/20 text-red-400 mb-2" : "bg-primary/20 text-primary mb-2"}>
+                {isAdmin ? "System Administrator" : "Verified Trader"}
+              </Badge>
               <div className="flex items-center gap-1">
                 <Star className="h-4 w-4 text-yellow-400 fill-current" />
                 <span className="text-sm font-medium text-card-foreground">{userData.rating}</span>
-                <span className="text-sm text-muted-foreground">({userData.totalTrades} trades)</span>
+                <span className="text-sm text-muted-foreground">
+                  ({isAdmin ? "Admin" : `${userData.totalTrades} trades`})
+                </span>
               </div>
             </div>
 
@@ -79,40 +112,54 @@ export function UserProfile() {
                       value={editData.name}
                       onChange={(e) => setEditData((prev) => ({ ...prev, name: e.target.value }))}
                       className="bg-input border-border text-foreground"
+                      disabled={isAdmin} // Disable editing for admin
                     />
                   ) : (
                     userData.name
                   )}
                 </h1>
                 <div className="flex gap-2">
-                  {isEditing ? (
+                  {!isAdmin && (
                     <>
-                      <Button
-                        size="sm"
-                        onClick={handleSave}
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                      >
-                        <Save className="h-4 w-4 mr-1" />
-                        Save
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleCancel}
-                        className="border-border text-card-foreground bg-transparent"
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Cancel
-                      </Button>
+                      {isEditing ? (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={handleSave}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                          >
+                            <Save className="h-4 w-4 mr-1" />
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleCancel}
+                            className="border-border text-card-foreground bg-transparent"
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => setIsEditing(true)}
+                          className="bg-accent hover:bg-accent/90 text-accent-foreground"
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                      )}
                     </>
-                  ) : (
+                  )}
+                  {isAdmin && (
                     <Button
                       size="sm"
-                      onClick={() => setIsEditing(true)}
-                      className="bg-accent hover:bg-accent/90 text-accent-foreground"
+                      onClick={() => router.push("/admin")}
+                      className="bg-red-500 hover:bg-red-600 text-white"
                     >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Edit
+                      Admin Dashboard
                     </Button>
                   )}
                 </div>
@@ -121,7 +168,7 @@ export function UserProfile() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-card-foreground font-medium">Email</Label>
-                  {isEditing ? (
+                  {isEditing && !isAdmin ? (
                     <Input
                       value={editData.email}
                       onChange={(e) => setEditData((prev) => ({ ...prev, email: e.target.value }))}
@@ -134,7 +181,7 @@ export function UserProfile() {
 
                 <div className="space-y-2">
                   <Label className="text-card-foreground font-medium">Phone</Label>
-                  {isEditing ? (
+                  {isEditing && !isAdmin ? (
                     <Input
                       value={editData.phone}
                       onChange={(e) => setEditData((prev) => ({ ...prev, phone: e.target.value }))}
@@ -152,7 +199,7 @@ export function UserProfile() {
                   <p className="text-sm text-muted-foreground">Balance</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-card-foreground">{userData.totalTrades}</p>
+                  <p className="text-2xl font-bold text-card-foreground">{isAdmin ? "∞" : userData.totalTrades}</p>
                   <p className="text-sm text-muted-foreground">Total Trades</p>
                 </div>
                 <div className="text-center">
@@ -166,98 +213,65 @@ export function UserProfile() {
       </Card>
 
       {/* Profile Tabs */}
-      <Tabs defaultValue="items" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 bg-card">
-          <TabsTrigger
-            value="items"
-            className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
-          >
-            My Items
-          </TabsTrigger>
-          <TabsTrigger
-            value="achievements"
-            className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
-          >
-            Achievements
-          </TabsTrigger>
+      <Tabs defaultValue={isAdmin ? "admin" : "items"} className="space-y-6">
+        <TabsList className={`grid w-full ${isAdmin ? "grid-cols-3" : "grid-cols-2"} bg-card`}>
+          {!isAdmin && (
+            <TabsTrigger
+              value="items"
+              className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
+            >
+              My Items
+            </TabsTrigger>
+          )}
           <TabsTrigger
             value="settings"
             className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
           >
             Settings
           </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger
+              value="admin"
+              className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
+            >
+              Admin Controls
+            </TabsTrigger>
+          )}
         </TabsList>
 
-        <TabsContent value="items">
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="text-xl text-card-foreground flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Recent Items
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {recentItems.map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                  <div className="flex-1">
-                    <h3 className="font-medium text-card-foreground">{item.name}</h3>
-                    <p className="text-sm text-muted-foreground">{item.date}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-accent">{item.price}</p>
-                    <Badge
-                      variant={item.status === "sold" ? "default" : "secondary"}
-                      className={
-                        item.status === "sold" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"
-                      }
-                    >
-                      {item.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="achievements">
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="text-xl text-card-foreground flex items-center gap-2">
-                <Star className="h-5 w-5" />
-                Achievements
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-4">
-                {achievements.map((achievement, index) => (
-                  <div
-                    key={index}
-                    className={`p-4 rounded-lg border ${
-                      achievement.earned ? "bg-accent/10 border-accent" : "bg-muted/50 border-border"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          achievement.earned ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"
-                        }`}
+        {!isAdmin && (
+          <TabsContent value="items">
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="text-xl text-card-foreground flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Recent Items
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {recentItems.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex-1">
+                      <h3 className="font-medium text-card-foreground">{item.name}</h3>
+                      <p className="text-sm text-muted-foreground">{item.date}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-accent">{item.price}</p>
+                      <Badge
+                        variant={item.status === "sold" ? "default" : "secondary"}
+                        className={
+                          item.status === "sold" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"
+                        }
                       >
-                        <Star className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className={`font-medium ${achievement.earned ? "text-accent" : "text-muted-foreground"}`}>
-                          {achievement.name}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">{achievement.description}</p>
-                      </div>
+                        {item.status}
+                      </Badge>
                     </div>
                   </div>
                 ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         <TabsContent value="settings">
           <Card className="bg-card border-border">
@@ -265,46 +279,88 @@ export function UserProfile() {
               <CardTitle className="text-xl text-card-foreground">Account Settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-card-foreground">Robux Points</h3>
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-card-foreground">Current Balance</span>
-                    <span className="text-2xl font-bold text-accent">{userData.balance}</span>
+              {!isAdmin && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-card-foreground">Robux Points</h3>
+                  <div className="bg-muted/50 p-4 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-card-foreground">Current Balance</span>
+                      <span className="text-2xl font-bold text-accent">{userData.balance}</span>
+                    </div>
+                    <Button
+                      onClick={handleAddRobux}
+                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                    >
+                      Add Robux
+                    </Button>
                   </div>
-                  <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">Add Robux</Button>
                 </div>
-              </div>
+              )}
 
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-card-foreground">Account Actions</h3>
                 <div className="space-y-2">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start border-border text-card-foreground bg-transparent"
-                  >
-                    Change Password
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start border-border text-card-foreground bg-transparent"
-                  >
-                    Privacy Settings
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start border-border text-card-foreground bg-transparent"
-                  >
-                    Notification Preferences
-                  </Button>
-                  <Button variant="destructive" className="w-full justify-start">
-                    Delete Account
-                  </Button>
+                  {!isAdmin && (
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start border-border text-card-foreground bg-transparent"
+                    >
+                      Change Password
+                    </Button>
+                  )}
+                  {isAdmin ? (
+                    <Button
+                      variant="destructive"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        localStorage.removeItem("isAdmin")
+                        localStorage.removeItem("currentUser")
+                        router.push("/")
+                      }}
+                    >
+                      Logout Admin
+                    </Button>
+                  ) : (
+                    <Button variant="destructive" className="w-full justify-start">
+                      Delete Account
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="admin">
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="text-xl text-card-foreground">Admin Controls</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Button
+                    onClick={() => router.push("/admin")}
+                    className="bg-red-500 hover:bg-red-600 text-white p-6 h-auto flex-col"
+                  >
+                    <Package className="h-8 w-8 mb-2" />
+                    <span className="text-lg font-semibold">Manage Orders</span>
+                    <span className="text-sm opacity-90">View and manage all user orders</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-border text-card-foreground bg-transparent p-6 h-auto flex-col"
+                    disabled
+                  >
+                    <Star className="h-8 w-8 mb-2" />
+                    <span className="text-lg font-semibold">User Management</span>
+                    <span className="text-sm opacity-60">Coming Soon</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )

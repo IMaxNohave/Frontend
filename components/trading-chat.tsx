@@ -59,6 +59,16 @@ export function TradingChat({ orderId, currentUserId, currentUserRole }: Trading
       status: "delivered",
       type: "system",
     },
+    {
+      id: "4",
+      content: "I'm online now, where should we meet?",
+      senderId: currentUserId,
+      senderName: "You",
+      senderRole: currentUserRole,
+      timestamp: new Date(Date.now() - 60000), // 1 minute ago
+      status: "delivered",
+      type: "message",
+    },
   ])
 
   const [newMessage, setNewMessage] = useState("")
@@ -80,7 +90,7 @@ export function TradingChat({ orderId, currentUserId, currentUserRole }: Trading
       id: Date.now().toString(),
       content: newMessage,
       senderId: currentUserId,
-      senderName: currentUserRole === "buyer" ? "You" : "You",
+      senderName: "You",
       senderRole: currentUserRole,
       timestamp: new Date(),
       status: "sent",
@@ -97,6 +107,31 @@ export function TradingChat({ orderId, currentUserId, currentUserRole }: Trading
     setTimeout(() => {
       setMessages((prev) => prev.map((msg) => (msg.id === message.id ? { ...msg, status: "delivered" } : msg)))
     }, 1000)
+
+    if (Math.random() > 0.7) {
+      setTimeout(() => {
+        const otherRole = currentUserRole === "buyer" ? "seller" : "buyer"
+        const responses = [
+          "Got it, I'll be there in 5 minutes",
+          "Let me know when you're ready",
+          "Thanks for the update!",
+          "Sounds good to me",
+        ]
+
+        const responseMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          content: responses[Math.floor(Math.random() * responses.length)],
+          senderId: otherRole + "123",
+          senderName: otherRole === "buyer" ? "Customer123" : "BallChon",
+          senderRole: otherRole,
+          timestamp: new Date(),
+          status: "delivered",
+          type: "message",
+        }
+
+        setMessages((prev) => [...prev, responseMessage])
+      }, 2000)
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -227,10 +262,13 @@ export function TradingChat({ orderId, currentUserId, currentUserRole }: Trading
         <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">
           <p className="font-medium mb-1">Chat Guidelines:</p>
           <ul className="space-y-1">
-            <li>• Be respectful and professional</li>
-            <li>• Share game coordinates and meeting details</li>
-            <li>• Report any issues to admin immediately</li>
-            <li>• Do not share personal information</li>
+            <li>• Be respectful and professional with all users</li>
+            <li>• Share game coordinates and meeting details clearly</li>
+            <li>
+              • {currentUserRole === "buyer" ? "Confirm item details before meeting" : "Verify payment before trading"}
+            </li>
+            <li>• Report any suspicious behavior to admin</li>
+            <li>• Do not share personal information outside the platform</li>
           </ul>
         </div>
       </CardContent>

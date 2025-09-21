@@ -13,6 +13,9 @@ interface ItemDetailProps {
 export function ItemDetail({ itemId }: ItemDetailProps) {
   const router = useRouter()
 
+  const currentUserEmail = typeof window !== "undefined" ? localStorage.getItem("userEmail") : null
+  const isAdmin = currentUserEmail === "admin@gmail.com"
+
   // Mock item data - in real app this would come from API
   const item = {
     id: itemId,
@@ -21,10 +24,26 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
     category: "BloxFruit",
     image: "/placeholder-engvj.png",
     seller: "ProTrader123",
+    sellerEmail: "protrader@example.com", // Add seller email for ownership check
     description:
       "Rare Dragon Fruit with special fire abilities. Perfect for combat and exploration. This item is in excellent condition and comes with all original powers intact.",
     rarity: "Legendary",
     condition: "Excellent",
+  }
+
+  const isOwner = currentUserEmail === item.sellerEmail
+  const canEditDelete = isAdmin || isOwner
+
+  const handleEdit = () => {
+    router.push(`/edit-item/${item.id}`)
+  }
+
+  const handleDelete = () => {
+    if (confirm("Are you sure you want to delete this item? This action cannot be undone.")) {
+      // In real app, this would call an API to delete the item
+      alert("Item deleted successfully!")
+      router.push("/marketplace")
+    }
   }
 
   return (
@@ -99,6 +118,25 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
             <h3 className="font-semibold text-foreground mb-2">Description</h3>
             <p className="text-muted-foreground leading-relaxed">{item.description}</p>
           </div>
+
+          {canEditDelete && (
+            <div className="flex gap-2 p-4 bg-muted/30 rounded-lg border border-border">
+              <Button
+                variant="outline"
+                className="flex-1 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white bg-transparent"
+                onClick={handleEdit}
+              >
+                Edit Item
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 border-red-500 text-red-500 hover:bg-red-500 hover:text-white bg-transparent"
+                onClick={handleDelete}
+              >
+                Delete Item
+              </Button>
+            </div>
+          )}
 
           <div className="space-y-3">
             <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3">

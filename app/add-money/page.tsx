@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -7,30 +9,55 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { MarketplaceHeader } from "@/components/marketplace-header"
 import { BreadcrumbNav } from "@/components/breadcrumb-nav"
-import { CreditCard, Wallet, DollarSign, Shield, Zap } from "lucide-react"
-
-const paymentMethods = [
-  { id: "card", name: "Credit/Debit Card", icon: CreditCard, fee: "2.9%" },
-  { id: "paypal", name: "PayPal", icon: Wallet, fee: "3.4%" },
-  { id: "crypto", name: "Cryptocurrency", icon: DollarSign, fee: "1.5%" },
-]
-
-const quickAmounts = [
-  { robux: 400, usd: 4.99 },
-  { robux: 800, usd: 9.99 },
-  { robux: 1700, usd: 19.99 },
-  { robux: 4500, usd: 49.99 },
-  { robux: 10000, usd: 99.99 },
-]
+import { Upload, QrCode, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
 
 export default function AddMoneyPage() {
-  const [selectedMethod, setSelectedMethod] = useState("card")
-  const [customAmount, setCustomAmount] = useState("")
-  const [selectedQuickAmount, setSelectedQuickAmount] = useState<number | null>(null)
+  const [amount, setAmount] = useState("")
+  const [receipt, setReceipt] = useState<File | null>(null)
+  const [isVerifying, setIsVerifying] = useState(false)
+  const [verificationStatus, setVerificationStatus] = useState<"idle" | "success" | "error">("idle")
 
-  const handleQuickAmountSelect = (amount: { robux: number; usd: number }) => {
-    setSelectedQuickAmount(amount.robux)
-    setCustomAmount(amount.usd.toString())
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      setReceipt(file)
+      setVerificationStatus("idle")
+    }
+  }
+
+  const handleSubmit = async () => {
+    if (!amount || !receipt) return
+
+    setIsVerifying(true)
+
+    try {
+      const formData = new FormData()
+      formData.append("receipt", receipt)
+      formData.append("amount", amount)
+
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 3000))
+
+      // Simulate random success/failure for demo
+      const isValid = Math.random() > 0.3
+
+      if (isValid) {
+        setVerificationStatus("success")
+        // Add money to user account
+        setTimeout(() => {
+          alert(`Successfully added ${Math.floor(Number(amount) * 80)} R$ to your account!`)
+          setAmount("")
+          setReceipt(null)
+          setVerificationStatus("idle")
+        }, 2000)
+      } else {
+        setVerificationStatus("error")
+      }
+    } catch (error) {
+      setVerificationStatus("error")
+    } finally {
+      setIsVerifying(false)
+    }
   }
 
   return (
@@ -45,142 +72,132 @@ export default function AddMoneyPage() {
           ]}
         />
 
-        <div className="max-w-4xl mx-auto mt-6">
+        <div className="max-w-2xl mx-auto mt-6">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">Add Money to Your Account</h1>
-            <p className="text-muted-foreground">Purchase Robux to buy items on Ro Trade</p>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Add Money</h1>
+            <p className="text-muted-foreground">Transfer money via QR code and upload your receipt</p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* Quick Purchase Options */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-accent" />
-                  Quick Purchase
-                </CardTitle>
-                <CardDescription>Choose from popular Robux packages</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {quickAmounts.map((amount) => (
-                  <Button
-                    key={amount.robux}
-                    variant={selectedQuickAmount === amount.robux ? "default" : "outline"}
-                    className="w-full justify-between h-auto p-4"
-                    onClick={() => handleQuickAmountSelect(amount)}
-                  >
-                    <div className="text-left">
-                      <div className="font-bold text-accent">{amount.robux.toLocaleString()} R$</div>
-                      <div className="text-sm text-muted-foreground">Robux</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold">${amount.usd}</div>
-                      <div className="text-sm text-muted-foreground">USD</div>
-                    </div>
-                  </Button>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Custom Amount & Payment */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Payment Details</CardTitle>
-                <CardDescription>Enter custom amount or use quick options</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Custom Amount */}
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Custom Amount (USD)</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    placeholder="Enter amount..."
-                    value={customAmount}
-                    onChange={(e) => {
-                      setCustomAmount(e.target.value)
-                      setSelectedQuickAmount(null)
-                    }}
-                    min="1"
-                    step="0.01"
+          <Card className="bg-card border-border">
+            <CardHeader className="text-center">
+              <CardTitle className="flex items-center justify-center gap-2">
+                <QrCode className="h-6 w-6 text-accent" />
+                Scan QR Code to Transfer
+              </CardTitle>
+              <CardDescription>Scan the QR code below with your banking app to transfer money</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex justify-center">
+                <div className="bg-white p-6 rounded-lg border-2 border-dashed border-border">
+                  <img
+                    src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-mEEsSWVW8RegSRIiy8sFzN0YvG1weu.png"
+                    alt="QR Code for payment"
+                    className="w-48 h-48 object-contain"
                   />
-                  {customAmount && (
-                    <p className="text-sm text-muted-foreground">
-                      ≈ {Math.floor(Number.parseFloat(customAmount) * 80)} R$ (80 R$ per $1)
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="amount" className="text-base font-medium">
+                  Amount Transferred (USD)
+                </Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  placeholder="Enter the amount you transferred..."
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  min="1"
+                  step="0.01"
+                  className="text-lg p-4 h-12"
+                />
+                {amount && (
+                  <p className="text-sm text-muted-foreground">
+                    You will receive:{" "}
+                    <span className="font-bold text-accent">{Math.floor(Number(amount) * 80)} R$</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="receipt" className="text-base font-medium">
+                  Upload Receipt Proof
+                </Label>
+                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-accent transition-colors">
+                  <input id="receipt" type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                  <label htmlFor="receipt" className="cursor-pointer">
+                    <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground mb-2">
+                      {receipt ? receipt.name : "Click to upload your receipt"}
                     </p>
+                    <Button variant="outline" type="button" className="pointer-events-none bg-transparent">
+                      {receipt ? "Change File" : "Add File"}
+                    </Button>
+                  </label>
+                </div>
+                {receipt && (
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <CheckCircle className="h-4 w-4" />
+                    Receipt uploaded successfully
+                  </div>
+                )}
+              </div>
+
+              {verificationStatus !== "idle" && (
+                <div className="p-4 rounded-lg border">
+                  {verificationStatus === "success" && (
+                    <div className="flex items-center gap-2 text-green-600">
+                      <CheckCircle className="h-5 w-5" />
+                      <span>Receipt verified! Money will be added to your account.</span>
+                    </div>
+                  )}
+                  {verificationStatus === "error" && (
+                    <div className="flex items-center gap-2 text-red-600">
+                      <AlertCircle className="h-5 w-5" />
+                      <span>Receipt verification failed. Please check your receipt and try again.</span>
+                    </div>
                   )}
                 </div>
+              )}
 
-                {/* Payment Methods */}
-                <div className="space-y-3">
-                  <Label>Payment Method</Label>
-                  {paymentMethods.map((method) => {
-                    const IconComponent = method.icon
-                    return (
-                      <Button
-                        key={method.id}
-                        variant={selectedMethod === method.id ? "default" : "outline"}
-                        className="w-full justify-between h-auto p-4"
-                        onClick={() => setSelectedMethod(method.id)}
-                      >
-                        <div className="flex items-center gap-3">
-                          <IconComponent className="h-5 w-5" />
-                          <span>{method.name}</span>
-                        </div>
-                        <span className="text-sm text-muted-foreground">{method.fee} fee</span>
-                      </Button>
-                    )
-                  })}
-                </div>
-
-                {/* Security Notice */}
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <Shield className="h-5 w-5 text-green-500 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-medium text-foreground">Secure Payment</p>
-                      <p className="text-muted-foreground">
-                        Your payment information is encrypted and secure. We never store your payment details.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Purchase Button */}
+              <div className="flex gap-4">
                 <Button
-                  className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold py-3"
-                  disabled={!customAmount || Number.parseFloat(customAmount) < 1}
+                  variant="outline"
+                  className="flex-1 bg-transparent"
+                  onClick={() => {
+                    setAmount("")
+                    setReceipt(null)
+                    setVerificationStatus("idle")
+                  }}
+                  disabled={isVerifying}
                 >
-                  Purchase {customAmount && `$${customAmount} → ${Math.floor(Number.parseFloat(customAmount) * 80)} R$`}
+                  Cancel
                 </Button>
-              </CardContent>
-            </Card>
-          </div>
+                <Button
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                  onClick={handleSubmit}
+                  disabled={!amount || !receipt || isVerifying}
+                >
+                  {isVerifying ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    "Check & Add Money"
+                  )}
+                </Button>
+              </div>
 
-          {/* Transaction History Preview */}
-          <Card className="mt-8">
-            <CardHeader>
-              <CardTitle>Recent Transactions</CardTitle>
-              <CardDescription>Your recent Robux purchases</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {[
-                  { date: "2024-01-15", amount: "$9.99", robux: "800 R$", status: "Completed" },
-                  { date: "2024-01-10", amount: "$19.99", robux: "1,700 R$", status: "Completed" },
-                  { date: "2024-01-05", amount: "$4.99", robux: "400 R$", status: "Completed" },
-                ].map((transaction, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <div>
-                      <p className="font-medium text-foreground">{transaction.robux}</p>
-                      <p className="text-sm text-muted-foreground">{transaction.date}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-foreground">{transaction.amount}</p>
-                      <p className="text-sm text-green-500">{transaction.status}</p>
-                    </div>
-                  </div>
-                ))}
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <h4 className="font-medium text-foreground mb-2">Instructions:</h4>
+                <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                  <li>Scan the QR code with your banking app</li>
+                  <li>Transfer the desired amount</li>
+                  <li>Take a screenshot of the successful transaction</li>
+                  <li>Upload the receipt and enter the exact amount transferred</li>
+                  <li>Wait for verification (usually takes 1-3 minutes)</li>
+                </ol>
               </div>
             </CardContent>
           </Card>

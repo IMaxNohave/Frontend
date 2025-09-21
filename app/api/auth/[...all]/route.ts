@@ -1,6 +1,9 @@
-import { auth } from "@/lib/auth"
-import { toNextJsHandler } from "better-auth/next-js"
+import { type NextRequest, NextResponse } from "next/server"
 
-const handler = toNextJsHandler(auth)
+export async function GET(request: NextRequest) {
+  return NextResponse.json({ message: "Auth endpoint" })
+}
 
-export { handler as GET, handler as POST }
+export async function POST(request: NextRequest) {
+  return NextResponse.json({ message: "Auth endpoint" })
+}

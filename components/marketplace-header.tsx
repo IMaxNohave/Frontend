@@ -20,6 +20,8 @@ export function MarketplaceHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const router = useRouter()
 
+  const isAdmin = typeof window !== "undefined" && localStorage.getItem("userEmail") === "admin@gmail.com"
+
   const activeOrders = [
     {
       id: "ORD-2025-0001",
@@ -113,7 +115,7 @@ export function MarketplaceHeader() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-80">
-                  <DropdownMenuLabel>My Orders</DropdownMenuLabel>
+                  <DropdownMenuLabel>{isAdmin ? "Admin Dashboard" : "My Orders"}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {activeOrders.length === 0 ? (
                     <div className="p-4 text-center text-muted-foreground">No active orders</div>
@@ -148,9 +150,20 @@ export function MarketplaceHeader() {
                     ))
                   )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-center justify-center" onClick={() => router.push("/orders")}>
-                    View All Orders
+                  <DropdownMenuItem
+                    className="text-center justify-center"
+                    onClick={() => router.push(isAdmin ? "/admin" : "/orders")}
+                  >
+                    {isAdmin ? "View Admin Dashboard" : "View All Orders"}
                   </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem
+                      className="text-center justify-center bg-accent/10 text-accent"
+                      onClick={() => router.push("/admin")}
+                    >
+                      Manage All Orders
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
 

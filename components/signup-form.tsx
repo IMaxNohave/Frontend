@@ -10,48 +10,62 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
 
-interface LoginFormProps {
-  onSwitchToSignup: () => void
+interface SignupFormProps {
+  onSwitchToLogin: () => void
 }
 
-export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
+export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  })
+  const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const router = useRouter()
 
   const validateForm = () => {
-    const newErrors: { email?: string; password?: string } = {}
+    const newErrors: { [key: string]: string } = {}
 
-    if (!email) {
+    if (!formData.name || formData.name.length < 2) {
+      newErrors.name = "Name must be at least 2 characters"
+    }
+
+    if (!formData.email) {
       newErrors.email = "Email is required"
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = "Invalid email address"
     }
 
-    if (!password) {
-      newErrors.password = "Password is required"
-    } else if (password.length < 6) {
+    if (!formData.password || formData.password.length < 6) {
       newErrors.password = "Password must be at least 6 characters"
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords don't match"
     }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
-  const handleGoogleLogin = async () => {
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleGoogleSignup = async () => {
     setIsLoading(true)
-    // Simulate Google login
+    // Simulate Google signup
     setTimeout(() => {
       setIsLoading(false)
       router.push("/marketplace")
     }, 1500)
   }
 
-  const handleRobloxLogin = async () => {
+  const handleRobloxSignup = async () => {
     setIsLoading(true)
-    // Simulate Roblox login
+    // Simulate Roblox signup
     setTimeout(() => {
       setIsLoading(false)
       router.push("/marketplace")
@@ -68,33 +82,19 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
     setIsLoading(true)
 
     try {
-      if (email === "admin@gmail.com" && password === "123456") {
-        localStorage.setItem("isAdmin", "true")
-        localStorage.setItem(
-          "currentUser",
-          JSON.stringify({
-            email: "admin@gmail.com",
-            name: "Admin",
-            role: "admin",
-          }),
-        )
-        router.push("/admin")
-        return
-      }
-
       localStorage.setItem("isAdmin", "false")
       localStorage.setItem(
         "currentUser",
         JSON.stringify({
-          email: email,
-          name: "ProTrader123",
+          email: formData.email,
+          name: formData.name,
           role: "user",
         }),
       )
 
       router.push("/marketplace")
     } catch (error) {
-      console.error("Login failed:", error)
+      console.error("Signup failed:", error)
     } finally {
       setIsLoading(false)
     }
@@ -103,25 +103,25 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
   return (
     <Card className="bg-card border-border">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-bold text-card-foreground">Login</CardTitle>
-        <CardDescription className="text-muted-foreground">Choose your preferred login method</CardDescription>
+        <CardTitle className="text-2xl font-bold text-card-foreground">Sign Up</CardTitle>
+        <CardDescription className="text-muted-foreground">Create your account to start trading</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Button
-          onClick={handleGoogleLogin}
+          onClick={handleGoogleSignup}
           disabled={isLoading}
           className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3"
         >
-          {isLoading ? "Signing in..." : "Login with Google"}
+          {isLoading ? "Creating account..." : "Sign up with Google"}
         </Button>
 
         <Button
-          onClick={handleRobloxLogin}
+          onClick={handleRobloxSignup}
           disabled={isLoading}
           variant="outline"
           className="w-full border-border hover:bg-accent hover:text-accent-foreground font-semibold py-3 bg-transparent"
         >
-          {isLoading ? "Signing in..." : "Login with Roblox"}
+          {isLoading ? "Creating account..." : "Sign up with Roblox"}
         </Button>
 
         <div className="relative">
@@ -133,6 +133,20 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
+            <Label htmlFor="name" className="text-card-foreground">
+              Full Name
+            </Label>
+            <Input
+              id="name"
+              type="text"
+              placeholder="Enter your full name"
+              className="bg-input border-border text-foreground"
+              value={formData.name}
+              onChange={(e) => handleInputChange("name", e.target.value)}
+            />
+            {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="email" className="text-card-foreground">
               Email
             </Label>
@@ -141,8 +155,8 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
               type="email"
               placeholder="Enter your email"
               className="bg-input border-border text-foreground"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={formData.email}
+              onChange={(e) => handleInputChange("email", e.target.value)}
             />
             {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
           </div>
@@ -153,26 +167,40 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
             <Input
               id="password"
               type="password"
-              placeholder="Enter your password"
+              placeholder="Create a password"
               className="bg-input border-border text-foreground"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={formData.password}
+              onChange={(e) => handleInputChange("password", e.target.value)}
             />
             {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword" className="text-card-foreground">
+              Confirm Password
+            </Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              placeholder="Confirm your password"
+              className="bg-input border-border text-foreground"
+              value={formData.confirmPassword}
+              onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+            />
+            {errors.confirmPassword && <p className="text-sm text-red-500">{errors.confirmPassword}</p>}
           </div>
           <Button
             type="submit"
             className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-semibold"
             disabled={isLoading}
           >
-            {isLoading ? "Signing in..." : "Sign In"}
+            {isLoading ? "Creating account..." : "Create Account"}
           </Button>
         </form>
 
         <div className="text-center text-sm text-muted-foreground">
-          Don't have an account?{" "}
-          <button onClick={onSwitchToSignup} className="text-accent hover:text-accent/90 font-medium">
-            Sign up here
+          Already have an account?{" "}
+          <button onClick={onSwitchToLogin} className="text-accent hover:text-accent/90 font-medium">
+            Sign in here
           </button>
         </div>
       </CardContent>

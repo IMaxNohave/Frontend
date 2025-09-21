@@ -1,6 +1,6 @@
 "use client"
 
-import { X, ShoppingBag, Upload, History, User, Package } from "lucide-react"
+import { X, ShoppingBag, Upload, History, User, Package, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 
@@ -14,9 +14,16 @@ export function NavigationMenu({ isOpen, onClose }: NavigationMenuProps) {
 
   if (!isOpen) return null
 
+  const isAdmin = typeof window !== "undefined" && localStorage.getItem("userEmail") === "admin@gmail.com"
+
   const menuItems = [
     { icon: ShoppingBag, label: "View Items", color: "text-green-400", path: "/marketplace" },
-    { icon: Package, label: "Orders", color: "text-blue-400", path: "/orders" },
+    isAdmin
+      ? { icon: Shield, label: "Admin", color: "text-red-400", path: "/admin" }
+      : { icon: Package, label: "Orders", color: "text-blue-400", path: "/orders" },
+    ...(isAdmin
+      ? [{ icon: Package, label: "Manage Orders", color: "text-orange-400", path: "/admin/manage-orders" }]
+      : []),
     { icon: Upload, label: "Sell Item", color: "text-yellow-400", path: "/sell" },
     { icon: History, label: "History Item", color: "text-purple-400", path: "/history" },
     { icon: User, label: "Profile", color: "text-pink-400", path: "/profile" },
