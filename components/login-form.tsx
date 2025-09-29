@@ -9,12 +9,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
+//import { useNavigate } from "react-router-dom"
 
 interface LoginFormProps {
   onSwitchToSignup: () => void
 }
 
 export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
+  //const nav = useNavigate();
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -43,19 +45,35 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
   const handleGoogleLogin = async () => {
     setIsLoading(true)
     // Simulate Google login
-    setTimeout(() => {
-      setIsLoading(false)
-      router.push("/marketplace")
-    }, 1500)
+    try {
+        const res = await fetch("/api/auth/signin/google"); // <- มี /auth
+        const data = await res.json();
+        if (data.redirect && data.url) {
+          window.location.assign(data.url); // วิ่งไป Google
+          
+        } else {
+          console.error("Unexpected response:", data);
+        }
+    } finally {
+        setIsLoading(false);
+    }  
   }
 
   const handleRobloxLogin = async () => {
     setIsLoading(true)
     // Simulate Roblox login
-    setTimeout(() => {
-      setIsLoading(false)
-      router.push("/marketplace")
-    }, 1500)
+    try {
+        const res = await fetch("/api/auth/signin/roblox"); // <- มี /auth
+        const data = await res.json();
+        if (data.redirect && data.url) {
+          window.location.assign(data.url); // วิ่งไป Roblox
+          
+        } else {
+          console.error("Unexpected response:", data);
+        }
+    } finally {
+        setIsLoading(false);
+    }  
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -91,6 +109,16 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
           role: "user",
         }),
       )
+
+      const res = await fetch("/api/auth/signin/email", {
+        method: "POST",
+        credentials: "include",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          email,
+          password
+        })
+      })
 
       router.push("/marketplace")
     } catch (error) {

@@ -27,6 +27,10 @@ type SignupFormData = z.infer<typeof signupSchema>
 
 export function SignUp() {
   const [isLoading, setIsLoading] = useState(false)
+  const [username, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const router = useRouter()
 
   const {
@@ -40,12 +44,17 @@ export function SignUp() {
   const onSubmit = async (data: SignupFormData) => {
     setIsLoading(true)
     try {
-      await signUp.email({
-        name: data.username,
-        email: data.email,
-        password: data.password,
-        callbackURL: "/marketplace",
+      const res = await fetch("/api/auth/signup/email", {
+        method: "POST",
+        credentials: "include",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          name: username,
+          email: email,
+          password: password
+        })
       })
+      
     } catch (error) {
       console.error("Signup failed:", error)
     } finally {
@@ -73,7 +82,8 @@ export function SignUp() {
               type="text"
               placeholder="Choose a username"
               className="bg-input border-border text-foreground"
-              {...register("username")}
+              value={username}
+              onChange={(e) => setName(e.target.value)}
             />
             {errors.username && <p className="text-sm text-red-500">{errors.username.message}</p>}
           </div>
@@ -87,7 +97,8 @@ export function SignUp() {
               type="email"
               placeholder="Enter your email"
               className="bg-input border-border text-foreground"
-              {...register("email")}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
             {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
           </div>
@@ -101,7 +112,8 @@ export function SignUp() {
               type="password"
               placeholder="Enter your password"
               className="bg-input border-border text-foreground"
-              {...register("password")}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
             {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
           </div>
@@ -115,10 +127,11 @@ export function SignUp() {
               type="password"
               placeholder="Confirm your password"
               className="bg-input border-border text-foreground"
-              {...register("confirmPassword")}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
             />
-            {errors.confirmPassword && (
-              <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>
+            {confirmPassword !== password && (
+              <p className="text-sm text-red-500">Passwords do not match</p>
             )}
           </div>
 
