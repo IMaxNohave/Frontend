@@ -1,89 +1,204 @@
-"use client"
+"use client";
 
-import type React from "react"
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Upload, X, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Upload, X, Plus } from "lucide-react"
-import { useRouter } from "next/navigation"
+type Category = { id: string; name: string; detail?: string | null };
 
 export function ItemUploadForm() {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  const router = useRouter();
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     price: "",
-    category: "",
-    condition: "",
+    categoryId: "", // ✅ เก็บเป็น id ชัดเจน
     tags: [] as string[],
-  })
-  const [newTag, setNewTag] = useState("")
+  });
+  const [newTag, setNewTag] = useState("");
 
-  const categories = ["BloxFruit", "Bloxmesh", "Bloxbox", "Weapons", "Accessories", "Pets"]
-  const conditions = ["New", "Excellent", "Good", "Fair", "Poor"]
+  // Categories
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [catLoading, setCatLoading] = useState(false);
+  const [catError, setCatError] = useState<string | null>(null);
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setSelectedImage(e.target?.result as string)
+  // base URL (ถ้าใช้ reverse proxy/Next API routes อาจปล่อยว่าง)
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        setCatLoading(true);
+        setCatError(null);
+
+        const token = localStorage.getItem("token") || "";
+        const res = await fetch(`/api/v1/categories`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+        });
+
+        const text = await res.text();
+        const json = text ? JSON.parse(text) : {};
+        if (!res.ok || !json?.success) {
+          throw new Error(
+            json?.error || `Load categories failed (${res.status})`
+          );
+        }
+
+        const list: Category[] = Array.isArray(json.data) ? json.data : [];
+        if (alive) setCategories(list);
+      } catch (e: any) {
+        if (alive) setCatError(e?.message || "Load categories failed");
+      } finally {
+        if (alive) setCatLoading(false);
       }
-      reader.readAsDataURL(file)
-    }
-  }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setFile(f);
+    const reader = new FileReader();
+    reader.onload = (ev) => setPreview(ev.target?.result as string);
+    reader.readAsDataURL(f);
+  };
 
   const addTag = () => {
-    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
-      setFormData((prev) => ({
-        ...prev,
-        tags: [...prev.tags, newTag.trim()],
-      }))
-      setNewTag("")
+    const t = newTag.trim();
+    if (t && !formData.tags.includes(t)) {
+      setFormData((p) => ({ ...p, tags: [...p.tags, t] }));
+      setNewTag("");
     }
-  }
+  };
+  const removeTag = (t: string) =>
+    setFormData((p) => ({ ...p, tags: p.tags.filter((x) => x !== t) }));
 
-  const removeTag = (tagToRemove: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      tags: prev.tags.filter((tag) => tag !== tagToRemove),
-    }))
-  }
+  const parseJson = async (res: Response) => {
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(
+        `${res.status} ${res.statusText} - ${
+          text?.slice(0, 200) || "empty response"
+        }`
+      );
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+    e.preventDefault();
+    try {
+      if (!file) throw new Error("กรุณาเลือกรูป");
+      if (!formData.name || !formData.price || !formData.categoryId)
+        throw new Error("กรอกข้อมูลให้ครบ");
 
-    // Simulate upload process
-    setTimeout(() => {
-      setIsLoading(false)
-      router.push("/marketplace")
-    }, 2000)
-  }
+      setIsLoading(true);
+      const token = localStorage.getItem("token") || "";
+
+      // 1) ขอ presigned URL
+      const pre = await fetch(`/api/v1/r2/upload-url`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ contentType: file.type, fileName: file.name }),
+      });
+      if (!pre.ok)
+        throw new Error(`presign failed: ${pre.status} ${pre.statusText}`);
+      const preJson = await parseJson(pre);
+      if (!preJson?.success)
+        throw new Error(preJson?.error || "ขอ presign ไม่สำเร็จ");
+
+      // 2) PUT รูปขึ้น R2
+      const put = await fetch(preJson.data.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+        },
+        body: file,
+      });
+      if (!put.ok) throw new Error(await put.text());
+
+      // 3) ค่าที่จะเก็บใน DB (public url ถ้ามี, ไม่งั้น key)
+      const imageForDb: string = preJson.data.imageUrl ?? preJson.data.key;
+
+      // 4) เรียกสร้าง item
+      const create = await fetch(`/api/v1/sales`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          image: imageForDb,
+          name: formData.name,
+          description: formData.description,
+          price: Number(formData.price),
+          category: formData.categoryId, // ✅ ฝั่ง backend รับ field ชื่อ category (UUID 36 ตัว)
+          tag: formData.tags.join(","),
+        }),
+      });
+      if (!create.ok)
+        throw new Error(
+          `create item failed: ${create.status} ${create.statusText}`
+        );
+      const creJson = await parseJson(create);
+      if (!creJson?.success)
+        throw new Error(creJson?.error || "สร้างไอเท็มไม่สำเร็จ");
+
+      router.push("/marketplace");
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "เกิดข้อผิดพลาด");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Card className="bg-card border-border">
       <CardHeader>
-        <CardTitle className="text-2xl text-card-foreground">Item Details</CardTitle>
+        <CardTitle className="text-2xl text-card-foreground">
+          Item Details
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Image Upload */}
           <div className="space-y-2">
-            <Label className="text-card-foreground font-medium">Item Image</Label>
+            <Label className="text-card-foreground font-medium">
+              Item Image
+            </Label>
             <div className="border-2 border-dashed border-border rounded-lg p-6">
-              {selectedImage ? (
+              {preview ? (
                 <div className="relative">
                   <img
-                    src={selectedImage || "/placeholder.svg"}
+                    src={preview || "/placeholder.svg"}
                     alt="Preview"
                     className="w-full h-48 object-cover rounded-lg"
                   />
@@ -92,7 +207,10 @@ export function ItemUploadForm() {
                     variant="destructive"
                     size="icon"
                     className="absolute top-2 right-2"
-                    onClick={() => setSelectedImage(null)}
+                    onClick={() => {
+                      setPreview(null);
+                      setFile(null);
+                    }}
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -100,13 +218,15 @@ export function ItemUploadForm() {
               ) : (
                 <div className="text-center">
                   <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground mb-2">Click to upload item image</p>
+                  <p className="text-muted-foreground mb-2">
+                    Click to upload item image
+                  </p>
                   <input
+                    id="image-upload"
                     type="file"
                     accept="image/*"
                     onChange={handleImageUpload}
                     className="hidden"
-                    id="image-upload"
                   />
                   <Label
                     htmlFor="image-upload"
@@ -119,7 +239,7 @@ export function ItemUploadForm() {
             </div>
           </div>
 
-          {/* Item Name */}
+          {/* Name */}
           <div className="space-y-2">
             <Label htmlFor="name" className="text-card-foreground font-medium">
               Item Name
@@ -128,7 +248,9 @@ export function ItemUploadForm() {
               id="name"
               placeholder="Enter item name"
               value={formData.name}
-              onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+              onChange={(e) =>
+                setFormData((p) => ({ ...p, name: e.target.value }))
+              }
               className="bg-input border-border text-foreground"
               required
             />
@@ -136,78 +258,82 @@ export function ItemUploadForm() {
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description" className="text-card-foreground font-medium">
+            <Label
+              htmlFor="description"
+              className="text-card-foreground font-medium"
+            >
               Description
             </Label>
             <Textarea
               id="description"
               placeholder="Describe your item..."
               value={formData.description}
-              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+              onChange={(e) =>
+                setFormData((p) => ({ ...p, description: e.target.value }))
+              }
               className="bg-input border-border text-foreground min-h-[100px]"
               required
             />
           </div>
 
-          {/* Price and Category Row */}
+          {/* Price + Category */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="price" className="text-card-foreground font-medium">
+              <Label
+                htmlFor="price"
+                className="text-card-foreground font-medium"
+              >
                 Price (R$)
               </Label>
               <Input
                 id="price"
                 type="number"
+                min={0}
                 placeholder="0"
                 value={formData.price}
-                onChange={(e) => setFormData((prev) => ({ ...prev, price: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((p) => ({ ...p, price: e.target.value }))
+                }
                 className="bg-input border-border text-foreground"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="text-card-foreground font-medium">Category</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
-              >
-                <SelectTrigger className="bg-input border-border text-foreground">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-card-foreground font-medium">
+                Category
+              </Label>
+
+              {catLoading ? (
+                <div className="text-sm text-muted-foreground">
+                  Loading categories…
+                </div>
+              ) : catError ? (
+                <div className="text-sm text-red-500">{catError}</div>
+              ) : (
+                <Select
+                  value={formData.categoryId}
+                  onValueChange={(value) =>
+                    setFormData((p) => ({ ...p, categoryId: value }))
+                  }
+                >
+                  <SelectTrigger className="bg-input border-border text-foreground">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(categories ?? []).map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
 
-          {/* Condition */}
-          <div className="space-y-2">
-            <Label className="text-card-foreground font-medium">Condition</Label>
-            <Select
-              value={formData.condition}
-              onValueChange={(value) => setFormData((prev) => ({ ...prev, condition: value }))}
-            >
-              <SelectTrigger className="bg-input border-border text-foreground">
-                <SelectValue placeholder="Select condition" />
-              </SelectTrigger>
-              <SelectContent>
-                {conditions.map((condition) => (
-                  <SelectItem key={condition} value={condition}>
-                    {condition}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
           {/* Tags */}
-          <div className="space-y-2">
+          {/* <div className="space-y-2">
             <Label className="text-card-foreground font-medium">Tags</Label>
             <div className="flex gap-2">
               <Input
@@ -215,30 +341,35 @@ export function ItemUploadForm() {
                 value={newTag}
                 onChange={(e) => setNewTag(e.target.value)}
                 className="bg-input border-border text-foreground"
-                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && (e.preventDefault(), addTag())
+                }
               />
-              <Button type="button" onClick={addTag} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+              <Button
+                type="button"
+                onClick={addTag}
+                className="bg-accent hover:bg-accent/90 text-accent-foreground"
+              >
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
+
             {formData.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {formData.tags.map((tag) => (
-                  <Badge
+                  <span
                     key={tag}
-                    variant="secondary"
-                    className="bg-accent/20 text-accent cursor-pointer"
+                    className="px-2 py-1 rounded-md text-xs bg-accent/20 text-accent cursor-pointer"
                     onClick={() => removeTag(tag)}
                   >
                     #{tag}
-                    <X className="h-3 w-3 ml-1" />
-                  </Badge>
+                  </span>
                 ))}
               </div>
             )}
-          </div>
+          </div> */}
 
-          {/* Submit Buttons */}
+          {/* Actions */}
           <div className="flex gap-4 pt-4">
             <Button
               type="button"
@@ -259,5 +390,5 @@ export function ItemUploadForm() {
         </form>
       </CardContent>
     </Card>
-  )
+  );
 }

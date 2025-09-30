@@ -13,12 +13,15 @@ const nextConfig = {
   async rewrites() {
     return [
       // proxy /api/* ไปหา backend service (ชื่อคอนเทนเนอร์) พอร์ต 3000
-      { source: '/api/:path*', destination: 'http://IMaxNohave-backend:3000/:path*' },
+      {
+        source: "/api/:path*",
+        destination: "http://IMaxNohave-backend:3000/:path*",
+      },
     ];
   },
 
   // แนะนำสำหรับ build แบบ image เล็ก
-  output: 'standalone',
-}
+  output: "standalone",
+};
 
-export default nextConfig
+export default nextConfig;

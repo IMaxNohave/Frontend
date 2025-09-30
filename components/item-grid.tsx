@@ -1,105 +1,130 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { useRouter } from "next/navigation"
-import { PurchaseConfirmationDialog } from "./purchase-confirmation-dialog"
+import { useEffect, useMemo, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useRouter } from "next/navigation";
+import { PurchaseConfirmationDialog } from "./purchase-confirmation-dialog";
 
 interface ItemGridProps {
-  selectedTag: string | null
+  selectedTag: string | null; // ใช้เป็น category ชื่อ เช่น "BloxFruit"
 }
 
+type Item = {
+  id: string;
+  name: string;
+  seller_name: string | null;
+  detail: string | null;
+  image: string | null;
+  price: number;
+  status: number;
+  category: { id: string | null; name: string | null; detail: string | null };
+};
+
 export function ItemGrid({ selectedTag }: ItemGridProps) {
-  const router = useRouter()
-  const [selectedItem, setSelectedItem] = useState<any>(null)
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const router = useRouter();
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  const currentUserEmail = typeof window !== "undefined" ? localStorage.getItem("userEmail") : null
-  const isAdmin = currentUserEmail === "admin@gmail.com"
+  const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-  const items = [
-    {
-      id: 1,
-      name: "Dragon Fruit",
-      price: "500$",
-      category: "BloxFruit",
-      image: "/placeholder-se2ao.png",
-      seller: "ProTrader123",
-      sellerEmail: "protrader@example.com", // Add seller email for ownership check
-    },
-    {
-      id: 2,
-      name: "Shadow Sword",
-      price: "750$",
-      category: "Bloxmesh",
-      image: "/placeholder-opw43.png",
-      seller: "SwordMaster99",
-      sellerEmail: "swordmaster@example.com",
-    },
-    {
-      id: 3,
-      name: "Golden Box",
-      price: "1200$",
-      category: "Bloxbox",
-      image: "/placeholder-of0v7.png",
-      seller: "BoxCollector",
-      sellerEmail: "boxcollector@example.com",
-    },
-    {
-      id: 4,
-      name: "Ice Fruit",
-      price: "300$",
-      category: "BloxFruit",
-      image: "/placeholder-rjxxe.png",
-      seller: "FruitDealer",
-      sellerEmail: "fruitdealer@example.com",
-    },
-    {
-      id: 5,
-      name: "Lightning Staff",
-      price: "900$",
-      category: "Bloxmesh",
-      image: "/placeholder-mzkhc.png",
-      seller: "MagicUser88",
-      sellerEmail: "magicuser@example.com",
-    },
-    {
-      id: 6,
-      name: "Mystery Box",
-      price: "450$",
-      category: "Bloxbox",
-      image: "/placeholder-m1f53.png",
-      seller: "BoxHunter",
-      sellerEmail: "boxhunter@example.com",
-    },
-  ]
+  type Category = { id: string; name: string };
 
-  const filteredItems = selectedTag ? items.filter((item) => item.category === selectedTag) : items
+  const currentUserEmail =
+    typeof window !== "undefined" ? localStorage.getItem("userEmail") : null;
+  const isAdmin = currentUserEmail === "admin@gmail.com";
 
-  const handleBuyClick = (item: any, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setSelectedItem(item)
-    setShowConfirmDialog(true)
-  }
+  const filtered = useMemo(() => {
+    if (!selectedTag) return items; // All
+    return items.filter((it) => it.category?.id === selectedTag);
+  }, [items, selectedTag]);
 
-  const handleDeleteItem = (item: any, e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (confirm(`Are you sure you want to delete "${item.name}"? This action cannot be undone.`)) {
-      alert("Item deleted successfully!")
-      // In real app, this would call an API to delete the item
+  const [catMap, setCatMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = localStorage.getItem("token") || "";
+        const r = await fetch("/api/v1/categories", {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        const j = await r.json();
+        const list: Category[] = Array.isArray(j?.data) ? j.data : [];
+        const map: Record<string, string> = {};
+        for (const c of list) map[c.id] = c.name;
+        setCatMap(map);
+      } catch {}
+    })();
+  }, []);
+
+  const selectedCategoryName = useMemo(
+    () => (selectedTag ? catMap[selectedTag] ?? selectedTag : null),
+    [selectedTag, catMap]
+  );
+
+  // โหลดรายการจาก API
+  useEffect(() => {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") || "" : "";
+    if (!token) {
+      setErr("No token in localStorage");
+      return;
     }
-  }
+
+    setLoading(true);
+    setErr(null);
+
+    fetch("api/v1/home", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(async (r) => {
+        const txt = await r.text();
+        const json = JSON.parse(txt || "{}");
+        if (!r.ok || !json?.success) {
+          throw new Error(json?.error || `${r.status} ${r.statusText}`);
+        }
+        return (json.data || []) as Item[];
+      })
+      .then((rows) => setItems(rows))
+      .catch((e) => setErr(e.message || "failed to fetch items"))
+      .finally(() => setLoading(false));
+    console.log("Fetched items:", items);
+  }, []);
+
+  const handleBuyClick = (item: Item, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedItem(item);
+    setShowConfirmDialog(true);
+  };
+
+  // ตัวอย่างลบ (จริง ๆ ฝั่ง API ควรมี endpoint delete/soft-delete ของ item)
+  const handleDeleteItem = async (item: Item, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Delete "${item.name}" ?`)) return;
+
+    // TODO: เรียก API ของคุณเพื่อ soft-delete เช่น PATCH /v1/home/edit/:id { isActive: false }
+    // ตอนนี้ขอลบออกจาก state ก่อนเป็นตัวอย่าง
+    setItems((prev) => prev.filter((it) => it.id !== item.id));
+  };
 
   return (
     <>
+      {/* states */}
+      {loading && (
+        <div className="text-muted-foreground mb-4">Loading items…</div>
+      )}
+      {err && <div className="text-red-500 mb-4">Error: {err}</div>}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredItems.map((item) => {
-          const isOwner = currentUserEmail === item.sellerEmail
-          const canEditDelete = isAdmin || isOwner
+        {filtered.map((item) => {
+          // ในข้อมูลจาก /v1/home ยังไม่มี email ผู้ขาย → ตรวจ owner จริง ๆ ต้องเทียบ userId
+          // ตรงนี้จะโชว์ปุ่ม Delete เฉพาะ admin ไปก่อน
+          const canEditDelete = isAdmin;
 
           return (
             <Card
@@ -109,6 +134,7 @@ export function ItemGrid({ selectedTag }: ItemGridProps) {
             >
               <CardContent className="p-4">
                 <div className="aspect-square bg-muted rounded-lg mb-3 overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={item.image || "/placeholder.svg"}
                     alt={item.name}
@@ -118,16 +144,25 @@ export function ItemGrid({ selectedTag }: ItemGridProps) {
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-card-foreground font-semibold">{item.name}</h3>
-                    <Badge variant="secondary" className="bg-accent/20 text-accent text-xs">
-                      #{item.category}
+                    <h3 className="text-card-foreground font-semibold">
+                      {item.name}
+                    </h3>
+                    <Badge
+                      variant="secondary"
+                      className="bg-accent/20 text-accent text-xs"
+                    >
+                      #{item.category?.name ?? "Uncategorized"}
                     </Badge>
                   </div>
 
-                  <p className="text-sm text-muted-foreground">by {item.seller}</p>
+                  <p className="text-sm text-muted-foreground">
+                    by {item.seller_name ?? "-"}
+                  </p>
 
                   <div className="flex items-center justify-between pt-2">
-                    <span className="text-lg font-bold text-accent">{item.price}</span>
+                    <span className="text-lg font-bold text-accent">
+                      {Number(item.price).toLocaleString()} R$
+                    </span>
                     <div className="flex gap-1">
                       <Button
                         size="sm"
@@ -151,14 +186,20 @@ export function ItemGrid({ selectedTag }: ItemGridProps) {
                 </div>
               </CardContent>
             </Card>
-          )
+          );
         })}
       </div>
 
-      {filteredItems.length === 0 && (
+      {!loading && !err && filtered.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground text-lg">No items found for #{selectedTag}</p>
-          <p className="text-muted-foreground text-sm mt-2">Try selecting a different tag or browse all items</p>
+          <p className="text-muted-foreground text-lg">
+            {selectedCategoryName
+              ? `No items found for #${selectedCategoryName}`
+              : "No items found"}
+          </p>
+          <p className="text-muted-foreground text-sm mt-2">
+            Try selecting a different tag or browse all items
+          </p>
         </div>
       )}
 
@@ -170,5 +211,5 @@ export function ItemGrid({ selectedTag }: ItemGridProps) {
         />
       )}
     </>
-  )
+  );
 }
