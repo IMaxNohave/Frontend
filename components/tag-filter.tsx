@@ -10,9 +10,10 @@ interface TagFilterProps {
   selectedTag: string | null;
   /** ส่ง categoryId กลับ (หรือ null = ทั้งหมด) */
   onTagSelect: (tag: string | null) => void;
+  token: string | null;
 }
 
-export function TagFilter({ selectedTag, onTagSelect }: TagFilterProps) {
+export function TagFilter({ selectedTag, onTagSelect, token }: TagFilterProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [catLoading, setCatLoading] = useState(false);
   const [catError, setCatError] = useState<string | null>(null);
@@ -24,7 +25,7 @@ export function TagFilter({ selectedTag, onTagSelect }: TagFilterProps) {
         setCatLoading(true);
         setCatError(null);
 
-        const token = localStorage.getItem("token") || "";
+        //const token = localStorage.getItem("token") || "";
         const res = await fetch(`/api/v1/categories`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
@@ -49,7 +50,7 @@ export function TagFilter({ selectedTag, onTagSelect }: TagFilterProps) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [token]);
 
   return (
     <div className="flex flex-wrap gap-2 mb-6">

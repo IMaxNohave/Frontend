@@ -9,6 +9,7 @@ import { PurchaseConfirmationDialog } from "./purchase-confirmation-dialog";
 
 interface ItemGridProps {
   selectedTag: string | null; // ใช้เป็น category ชื่อ เช่น "BloxFruit"
+  token: string | null;
 }
 
 type Item = {
@@ -22,7 +23,7 @@ type Item = {
   category: { id: string | null; name: string | null; detail: string | null };
 };
 
-export function ItemGrid({ selectedTag }: ItemGridProps) {
+export function ItemGrid({ selectedTag, token }: ItemGridProps) {
   const router = useRouter();
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -47,8 +48,8 @@ export function ItemGrid({ selectedTag }: ItemGridProps) {
   useEffect(() => {
     (async () => {
       try {
-        const token = localStorage.getItem("token") || "";
-        const r = await fetch("/api/v1/categories", {
+        //const token = localStorage.getItem("token") || "";
+        const r = await fetch("/api/v1/home/categories", {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
         });
@@ -59,7 +60,7 @@ export function ItemGrid({ selectedTag }: ItemGridProps) {
         setCatMap(map);
       } catch {}
     })();
-  }, []);
+  }, [token]);
 
   const selectedCategoryName = useMemo(
     () => (selectedTag ? catMap[selectedTag] ?? selectedTag : null),
@@ -207,7 +208,13 @@ export function ItemGrid({ selectedTag }: ItemGridProps) {
         <PurchaseConfirmationDialog
           isOpen={showConfirmDialog}
           onClose={() => setShowConfirmDialog(false)}
-          item={selectedItem}
+          item={{
+            id: Number(selectedItem.id),                         // string -> number
+            name: selectedItem.name,
+            price: String(selectedItem.price),                   // number -> string
+            seller: selectedItem.seller_name ?? "-",             // เปลี่ยนชื่อฟิลด์
+            image: selectedItem.image ?? "/placeholder.svg",
+          }}
         />
       )}
     </>

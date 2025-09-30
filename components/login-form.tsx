@@ -50,7 +50,6 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
         const data = await res.json();
         if (data.redirect && data.url) {
           window.location.assign(data.url); // วิ่งไป Google
-          
         } else {
           console.error("Unexpected response:", data);
         }
@@ -67,7 +66,6 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
         const data = await res.json();
         if (data.redirect && data.url) {
           window.location.assign(data.url); // วิ่งไป Roblox
-          
         } else {
           console.error("Unexpected response:", data);
         }

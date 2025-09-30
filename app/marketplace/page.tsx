@@ -7,6 +7,7 @@ import { useEffect, useState } from "react"
 
 export default function MarketplacePage() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -18,6 +19,8 @@ export default function MarketplacePage() {
         const { token } = await res.json();
         console.log("Token:", token);
         if (token) localStorage.setItem("token", token);
+        const t = localStorage.getItem("token");
+        return setToken(t);
       }
       else {
         console.error("Failed to fetch token:", res.status);
@@ -29,8 +32,8 @@ export default function MarketplacePage() {
     <div className="min-h-screen bg-background">
       <MarketplaceHeader />
       <div className="container mx-auto px-4 py-6">
-        <TagFilter selectedTag={selectedTag} onTagSelect={setSelectedTag} />
-        <ItemGrid selectedTag={selectedTag} />
+        <TagFilter selectedTag={selectedTag} onTagSelect={setSelectedTag} token={token}/>
+        <ItemGrid selectedTag={selectedTag} token={token}/>
       </div>
     </div>
   )
