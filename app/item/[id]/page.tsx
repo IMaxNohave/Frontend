@@ -1,11 +1,11 @@
-import { ItemDetail } from "@/components/item-detail"
-import { MarketplaceHeader } from "@/components/marketplace-header"
-import { BreadcrumbNav } from "@/components/breadcrumb-nav"
+import { ItemDetail } from "@/components/item-detail";
+import { MarketplaceHeader } from "@/components/marketplace-header";
+import { BreadcrumbNav } from "@/components/breadcrumb-nav";
 
 interface ItemPageProps {
   params: {
-    id: string
-  }
+    id: string;
+  };
 }
 
 export default function ItemPage({ params }: ItemPageProps) {
@@ -17,5 +17,5 @@ export default function ItemPage({ params }: ItemPageProps) {
         <ItemDetail itemId={params.id} />
       </div>
     </div>
-  )
+  );
 }
