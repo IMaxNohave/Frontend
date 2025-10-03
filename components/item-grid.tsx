@@ -209,10 +209,10 @@ export function ItemGrid({ selectedTag, token }: ItemGridProps) {
           isOpen={showConfirmDialog}
           onClose={() => setShowConfirmDialog(false)}
           item={{
-            id: Number(selectedItem.id),                         // string -> number
+            id: Number(selectedItem.id), // string -> number
             name: selectedItem.name,
-            price: String(selectedItem.price),                   // number -> string
-            seller: selectedItem.seller_name ?? "-",             // เปลี่ยนชื่อฟิลด์
+            price: String(selectedItem.price), // number -> string
+            seller: selectedItem.seller_name ?? "-", // เปลี่ยนชื่อฟิลด์
             image: selectedItem.image ?? "/placeholder.svg",
           }}
         />

@@ -1,21 +1,22 @@
 /** @type {import('next').NextConfig} */
+
+// ช่วยประกอบ URL จาก env (มี default ด้วย)
+function getBackendBaseUrl() {
+  return `${process.env.NGINX_PROXY}`;
+}
+
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  images: {
-    unoptimized: true,
-  },
-  // ใช้ rewrites เป็น dev proxy และใช้ได้ทั้ง dev/prod
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
+  images: { unoptimized: true },
+
+  // ใช้ rewrites เป็น dev/prod proxy ได้ตาม env
   async rewrites() {
+    const backendBase = getBackendBaseUrl();
     return [
-      // proxy /api/* ไปหา backend service (ชื่อคอนเทนเนอร์) พอร์ต 3000
       {
         source: "/api/:path*",
-        destination: "http://IMaxNohave-backend:3000/:path*",
+        destination: `${backendBase}/:path*`,
       },
     ];
   },

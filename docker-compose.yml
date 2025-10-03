@@ -1,15 +1,15 @@
 name: IMaxNohave
-services: 
+services:
   frontend:
     container_name: IMaxNohave-frontend
     build: .
-    ports: 
-      - ${NGINX_PORT}:3000
-    networks: 
+    ports:
+      - ${NGINX_PORT}:${NGINX_PORT}
+    networks:
       - IMaxNohave-net
     environment:
       - NGINX_PROXY=${NGINX_PROXY}
       - NGINX_PORT=${NGINX_PORT}
-networks: 
+networks:
   IMaxNohave-net: # Check by using `docker network ls` command
     name: IMaxNohave-net
