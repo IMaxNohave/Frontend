@@ -2,7 +2,10 @@
 
 // ช่วยประกอบ URL จาก env (มี default ด้วย)
 function getBackendBaseUrl() {
-  return `${process.env.NGINX_PROXY}`;
+  if (process.env.NGINX_PROXY === undefined) {
+    return "http://IMaxNohave-backend:3000";
+  }
+  return process.env.NGINX_PROXY;
 }
 
 const nextConfig = {

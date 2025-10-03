@@ -8,6 +8,8 @@ services:
     networks:
       - IMaxNohave-net
     environment:
+      - HOST=0.0.0.0
+      - PORT=${NGINX_PORT} # ให้ตรงกับที่ expose และ map
       - NGINX_PROXY=${NGINX_PROXY}
       - NGINX_PORT=${NGINX_PORT}
 networks:
