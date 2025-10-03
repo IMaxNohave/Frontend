@@ -49,7 +49,7 @@ export function ItemUploadForm() {
         setCatError(null);
 
         const token = localStorage.getItem("token") || "";
-        const res = await fetch(`/api/v1/categories`, {
+        const res = await fetch(`/api/v1/home/categories`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -120,7 +120,7 @@ export function ItemUploadForm() {
       const token = localStorage.getItem("token") || "";
 
       // 1) ขอ presigned URL
-      const pre = await fetch(`/api/v1/r2/upload-url`, {
+      const pre = await fetch(`/api/v1/upload/r2/upload-url`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

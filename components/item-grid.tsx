@@ -71,10 +71,10 @@ export function ItemGrid({ selectedTag, token }: ItemGridProps) {
   useEffect(() => {
     const token =
       typeof window !== "undefined" ? localStorage.getItem("token") || "" : "";
-    if (!token) {
-      setErr("No token in localStorage");
-      return;
-    }
+    // if (!token) {
+    //   setErr("No token in localStorage");
+    //   return;
+    // }
 
     setLoading(true);
     setErr(null);

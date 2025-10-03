@@ -26,7 +26,7 @@ export function TagFilter({ selectedTag, onTagSelect, token }: TagFilterProps) {
         setCatError(null);
 
         //const token = localStorage.getItem("token") || "";
-        const res = await fetch(`/api/v1/categories`, {
+        const res = await fetch(`/api/v1/home/categories`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
         });
