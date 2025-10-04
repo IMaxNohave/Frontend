@@ -17,7 +17,7 @@ export default function MarketplacePage() {
       });
       if (res.ok) {
         const { token } = await res.json();
-        console.log("Token:", token);
+        //console.log("Token:", token);
         if (token) localStorage.setItem("token", token);
         const t = localStorage.getItem("token");
         return setToken(t);
