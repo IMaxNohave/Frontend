@@ -8,8 +8,9 @@ import { useRouter } from "next/navigation";
 import { PurchaseConfirmationDialog } from "./purchase-confirmation-dialog";
 
 interface ItemGridProps {
-  selectedTag: string | null; // ใช้เป็น category ชื่อ เช่น "BloxFruit"
+  selectedTag: string | null; // categoryId
   token: string | null;
+  searchTerm: string;
 }
 
 type Item = {
@@ -23,7 +24,9 @@ type Item = {
   category: { id: string | null; name: string | null; detail: string | null };
 };
 
-export function ItemGrid({ selectedTag, token }: ItemGridProps) {
+type Category = { id: string; name: string };
+
+export function ItemGrid({ selectedTag, token, searchTerm }: ItemGridProps) {
   const router = useRouter();
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -32,25 +35,17 @@ export function ItemGrid({ selectedTag, token }: ItemGridProps) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  type Category = { id: string; name: string };
-
-  const currentUserEmail =
-    typeof window !== "undefined" ? localStorage.getItem("userEmail") : null;
+  const currentUserEmail = typeof window !== "undefined" ? localStorage.getItem("userEmail") : null;
   const isAdmin = currentUserEmail === "admin@gmail.com";
-
-  const filtered = useMemo(() => {
-    if (!selectedTag) return items; // All
-    return items.filter((it) => it.category?.id === selectedTag);
-  }, [items, selectedTag]);
 
   const [catMap, setCatMap] = useState<Record<string, string>>({});
 
+  // โหลด category map (ชื่อ)
   useEffect(() => {
     (async () => {
       try {
-        //const token = localStorage.getItem("token") || "";
         const r = await fetch("/api/v1/home/categories", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           cache: "no-store",
         });
         const j = await r.json();
@@ -67,35 +62,61 @@ export function ItemGrid({ selectedTag, token }: ItemGridProps) {
     [selectedTag, catMap]
   );
 
-  // โหลดรายการจาก API
+  // ✅ fetch ด้วย debounce + AbortController กัน race
   useEffect(() => {
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem("token") || "" : "";
-    // if (!token) {
-    //   setErr("No token in localStorage");
-    //   return;
-    // }
+    const params = new URLSearchParams();
+    if (selectedTag) params.set("categoryId", selectedTag);
+    if (searchTerm) params.set("q", searchTerm);
 
-    setLoading(true);
-    setErr(null);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => {
+      setLoading(true);
+      setErr(null);
 
-    fetch("api/v1/home", {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(async (r) => {
-        const txt = await r.text();
-        const json = JSON.parse(txt || "{}");
-        if (!r.ok || !json?.success) {
-          throw new Error(json?.error || `${r.status} ${r.statusText}`);
-        }
-        return (json.data || []) as Item[];
+      fetch(`/api/v1/home?${params.toString()}`, {
+        method: "GET",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        cache: "no-store",
+        signal: ctrl.signal,
       })
-      .then((rows) => setItems(rows))
-      .catch((e) => setErr(e.message || "failed to fetch items"))
-      .finally(() => setLoading(false));
-    console.log("Fetched items:", items);
-  }, []);
+        .then(async (r) => {
+          const txt = await r.text();
+          const json = JSON.parse(txt || "{}");
+          if (!r.ok || json?.success === false) {
+            throw new Error(json?.error || `${r.status} ${r.statusText}`);
+          }
+          return (json.data || []) as Item[];
+        })
+        .then((rows) => setItems(rows))
+        .catch((e) => {
+          if (e.name === "AbortError") return;
+          setErr(e.message || "failed to fetch items");
+        })
+        .finally(() => setLoading(false));
+    }, 250); // debounce เครือข่าย
+
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort(); // ยกเลิกคำขอเก่าเมื่อพิมพ์ต่อ
+    };
+  }, [selectedTag, searchTerm, token]);
+
+  // ✅ ฟิลเตอร์ฝั่ง client ให้ตอบสนองทันที (แม้ระหว่างรอ API)
+  const visibleItems = useMemo(() => {
+    let list = items;
+    if (selectedTag) list = list.filter((it) => it.category?.id === selectedTag);
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      list = list.filter(
+        (it) =>
+          it.name.toLowerCase().includes(q) ||
+          (it.detail ?? "").toLowerCase().includes(q) ||
+          (it.seller_name ?? "").toLowerCase().includes(q) ||
+          (it.category?.name ?? "").toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [items, selectedTag, searchTerm]);
 
   const handleBuyClick = (item: Item, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -103,30 +124,20 @@ export function ItemGrid({ selectedTag, token }: ItemGridProps) {
     setShowConfirmDialog(true);
   };
 
-  // ตัวอย่างลบ (จริง ๆ ฝั่ง API ควรมี endpoint delete/soft-delete ของ item)
   const handleDeleteItem = async (item: Item, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm(`Delete "${item.name}" ?`)) return;
-
-    // TODO: เรียก API ของคุณเพื่อ soft-delete เช่น PATCH /v1/home/edit/:id { isActive: false }
-    // ตอนนี้ขอลบออกจาก state ก่อนเป็นตัวอย่าง
     setItems((prev) => prev.filter((it) => it.id !== item.id));
   };
 
   return (
     <>
-      {/* states */}
-      {loading && (
-        <div className="text-muted-foreground mb-4">Loading items…</div>
-      )}
+      {loading && <div className="text-muted-foreground mb-4">Loading items…</div>}
       {err && <div className="text-red-500 mb-4">Error: {err}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filtered.map((item) => {
-          // ในข้อมูลจาก /v1/home ยังไม่มี email ผู้ขาย → ตรวจ owner จริง ๆ ต้องเทียบ userId
-          // ตรงนี้จะโชว์ปุ่ม Delete เฉพาะ admin ไปก่อน
+        {visibleItems.map((item) => {
           const canEditDelete = isAdmin;
-
           return (
             <Card
               key={item.id}
@@ -145,20 +156,13 @@ export function ItemGrid({ selectedTag, token }: ItemGridProps) {
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-card-foreground font-semibold">
-                      {item.name}
-                    </h3>
-                    <Badge
-                      variant="secondary"
-                      className="bg-accent/20 text-accent text-xs"
-                    >
+                    <h3 className="text-card-foreground font-semibold">{item.name}</h3>
+                    <Badge variant="secondary" className="bg-accent/20 text-accent text-xs">
                       #{item.category?.name ?? "Uncategorized"}
                     </Badge>
                   </div>
 
-                  <p className="text-sm text-muted-foreground">
-                    by {item.seller_name ?? "-"}
-                  </p>
+                  <p className="text-sm text-muted-foreground">by {item.seller_name ?? "-"}</p>
 
                   <div className="flex items-center justify-between pt-2">
                     <span className="text-lg font-bold text-accent">
@@ -168,9 +172,9 @@ export function ItemGrid({ selectedTag, token }: ItemGridProps) {
                       <Button
                         size="sm"
                         className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                        onClick={(e) => handleBuyClick(item, e)}
+                         onClick={() => router.push(`/item/${item.id}`)}
                       >
-                        Buy Now
+                        View Item
                       </Button>
                       {canEditDelete && (
                         <Button
@@ -191,16 +195,12 @@ export function ItemGrid({ selectedTag, token }: ItemGridProps) {
         })}
       </div>
 
-      {!loading && !err && filtered.length === 0 && (
+      {!loading && !err && visibleItems.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground text-lg">
-            {selectedCategoryName
-              ? `No items found for #${selectedCategoryName}`
-              : "No items found"}
+            {selectedCategoryName ? `No items found for #${selectedCategoryName}` : "No items found"}
           </p>
-          <p className="text-muted-foreground text-sm mt-2">
-            Try selecting a different tag or browse all items
-          </p>
+          <p className="text-muted-foreground text-sm mt-2">Try searching another keyword or tag</p>
         </div>
       )}
 
@@ -209,10 +209,10 @@ export function ItemGrid({ selectedTag, token }: ItemGridProps) {
           isOpen={showConfirmDialog}
           onClose={() => setShowConfirmDialog(false)}
           item={{
-            id: Number(selectedItem.id), // string -> number
+            id: Number(selectedItem.id),
             name: selectedItem.name,
-            price: String(selectedItem.price), // number -> string
-            seller: selectedItem.seller_name ?? "-", // เปลี่ยนชื่อฟิลด์
+            price: String(selectedItem.price),
+            seller: selectedItem.seller_name ?? "-",
             image: selectedItem.image ?? "/placeholder.svg",
           }}
         />

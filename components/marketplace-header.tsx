@@ -1,11 +1,12 @@
-"use client"
+// components/marketplace-header.tsx
+"use client";
 
-import { Search, Menu, User, Plus, Home, ShoppingBag, MessageCircle } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { useState } from "react"
-import { NavigationMenu } from "@/components/navigation-menu"
-import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react";
+import { Search, Menu, User, Plus, Home, ShoppingBag } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NavigationMenu } from "@/components/navigation-menu";
+import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,57 +14,80 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
+} from "@/components/ui/dropdown-menu";
+import { api } from "@/app/service/api";
 
-export function MarketplaceHeader() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const router = useRouter()
+type WalletDTO = { balance: string; held: string; available: string; updatedAt?: string };
 
-  const isAdmin = typeof window !== "undefined" && localStorage.getItem("userEmail") === "admin@gmail.com"
+type Props = {
+  searchTerm?: string;
+  onSearchChange?: (v: string) => void;
+};
 
-  const activeOrders = [
-    {
-      id: "ORD-2025-0001",
-      item: "Dragon Fruit",
-      status: "pending",
-      hasNewMessages: true,
-      seller: "ProTrader123",
-    },
-    {
-      id: "ORD-2025-0002",
-      item: "Shadow Sword",
-      status: "ready",
-      hasNewMessages: false,
-      seller: "SwordMaster99",
-    },
-    {
-      id: "ORD-2025-0003",
-      item: "Golden Box",
-      status: "completed",
-      hasNewMessages: false,
-      seller: "BoxCollector",
-    },
-  ]
+function fmtR(amount?: string | number) {
+  if (amount === undefined || amount === null) return "0 R$";
+  if (typeof amount === "string" && amount.includes("∞")) return "∞R$";
+  const n = Number(amount);
+  if (!isFinite(n)) return "∞R$";
+  return `${n.toLocaleString()} R$`;
+}
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "bg-yellow-500"
-      case "ready":
-        return "bg-green-500"
-      case "completed":
-        return "bg-blue-500"
-      default:
-        return "bg-gray-500"
-    }
-  }
+export function MarketplaceHeader({ searchTerm = "", onSearchChange }: Props = {}) {
+  const router = useRouter();
+
+  // side menu
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // admin flag (demo)
+  const isAdmin =
+    typeof window !== "undefined" && localStorage.getItem("userEmail") === "admin@gmail.com";
+
+  // search
+  const [internalQuery, setInternalQuery] = useState<string>(searchTerm ?? "");
+  useEffect(() => setInternalQuery(searchTerm ?? ""), [searchTerm]);
+
+  // wallet
+  const [wallet, setWallet] = useState<WalletDTO | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        setWalletLoading(true);
+        const res = await api.get<{ success: boolean; data: WalletDTO }>("/auth/user/wallet");
+        if (!alive) return;
+        if (!res.data?.success) throw new Error("Load wallet failed");
+        setWallet(res.data.data); // balance, held, available มาจาก DB
+      } catch (e: any) {
+        if (!alive) return;
+        // ถ้า 401 (ยังไม่ล็อกอิน/ token หมดอายุ) → แสดงค่า 0 R$
+        if (e?.response?.status === 401) {
+          setWallet(null);
+          // ถ้าต้องการเด้งไปหน้า Login: router.push("/login");
+        } else {
+          // error อื่น ๆ ก็ยังให้เห็น 0 R$
+          setWallet(null);
+          console.error("wallet error:", e?.message || e);
+        }
+      } finally {
+        if (alive) setWalletLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // demo badge ที่ไอคอนกระเป๋า (ถ้าจะต่อข้อความใหม่จริง ให้ดึงจาก /v1/orders/my พร้อม last read)
+  const activeOrdersHasNew = false;
 
   return (
     <>
       <header className="bg-card border-b border-border sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-4">
+            {/* left */}
             <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
@@ -73,7 +97,6 @@ export function MarketplaceHeader() {
               >
                 <Menu className="h-5 w-5" />
               </Button>
-
               <Button
                 variant="ghost"
                 onClick={() => router.push("/marketplace")}
@@ -84,15 +107,36 @@ export function MarketplaceHeader() {
               </Button>
             </div>
 
+            {/* middle: search */}
             <div className="flex-1 max-w-md">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input placeholder="Search items..." className="pl-10 bg-input border-border text-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  value={internalQuery ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setInternalQuery(v);
+                    onSearchChange?.(v);
+                  }}
+                  placeholder="Search items…"
+                  className="pl-10 bg-input border-border text-foreground"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") onSearchChange?.(internalQuery ?? "");
+                  }}
+                />
               </div>
             </div>
 
+            {/* right */}
             <div className="flex items-center gap-2">
-              <span className="text-accent font-bold text-lg">1000R$</span>
+              {walletLoading ? (
+                <span className="text-muted-foreground text-sm animate-pulse">Loading…</span>
+              ) : (
+                <span className="text-accent font-bold text-lg">
+                  {isAdmin ? "∞R$" : fmtR(wallet?.available ?? 0)}
+                </span>
+              )}
+
               <Button
                 size="icon"
                 className="bg-accent hover:bg-accent/90 text-accent-foreground"
@@ -109,7 +153,7 @@ export function MarketplaceHeader() {
                     className="text-card-foreground hover:bg-accent hover:text-accent-foreground relative"
                   >
                     <ShoppingBag className="h-5 w-5" />
-                    {activeOrders.some((order) => order.hasNewMessages) && (
+                    {activeOrdersHasNew && (
                       <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full" />
                     )}
                   </Button>
@@ -117,53 +161,12 @@ export function MarketplaceHeader() {
                 <DropdownMenuContent align="end" className="w-80">
                   <DropdownMenuLabel>{isAdmin ? "Admin Dashboard" : "My Orders"}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {activeOrders.length === 0 ? (
-                    <div className="p-4 text-center text-muted-foreground">No active orders</div>
-                  ) : (
-                    activeOrders.map((order) => (
-                      <DropdownMenuItem
-                        key={order.id}
-                        className="p-3 cursor-pointer"
-                        onClick={() => router.push(`/order/${order.id}`)}
-                      >
-                        <div className="flex items-start gap-3 w-full">
-                          <div className={`w-2 h-2 rounded-full mt-2 ${getStatusColor(order.status)}`} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <p className="font-medium text-sm truncate">{order.item}</p>
-                              {order.hasNewMessages && (
-                                <MessageCircle className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground">by {order.seller}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="outline" className="text-xs">
-                                {order.id}
-                              </Badge>
-                              <Badge variant="secondary" className="text-xs capitalize">
-                                {order.status}
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-                      </DropdownMenuItem>
-                    ))
-                  )}
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-center justify-center"
                     onClick={() => router.push(isAdmin ? "/admin" : "/orders")}
                   >
                     {isAdmin ? "View Admin Dashboard" : "View All Orders"}
                   </DropdownMenuItem>
-                  {isAdmin && (
-                    <DropdownMenuItem
-                      className="text-center justify-center bg-accent/10 text-accent"
-                      onClick={() => router.push("/admin")}
-                    >
-                      Manage All Orders
-                    </DropdownMenuItem>
-                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -182,5 +185,5 @@ export function MarketplaceHeader() {
 
       <NavigationMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
     </>
-  )
+  );
 }

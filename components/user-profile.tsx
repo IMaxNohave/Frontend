@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,30 +10,36 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Edit, Save, X, Star, Package } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { api } from "@/app/service/api";
 
-type MeDTO = {
+// ===== Types =====
+export type MeDTO = {
   id: string;
   name: string;
   email: string;
   image: string | null;
-  emailVerified: boolean;
   createdAt: string; // ISO
-  updatedAt: string; // ISO
 };
 
-type MyItem = {
+export type MyItem = {
   id: string;
   name: string;
   image: string | null;
-  price: number;           // service แคสต์เป็น number แล้ว
-  status: number;          // 1=Available, 2=Reserved ...
+  price: number;
+  status: number; // 1=Available, 2=Reserved ...
   seller_name: string | null;
   detail: string | null;
   category: { id: string | null; name: string | null; detail: string | null };
 };
 
+type WalletDTO = {
+  balance: string;   // decimal as string
+  held: string;      // decimal as string
+  available: string; // decimal as string (balance - held)
+  updatedAt?: string;
+};
 
+// ===== Utils =====
 function fmtDate(iso?: string) {
   if (!iso) return "-";
   try {
@@ -42,10 +49,57 @@ function fmtDate(iso?: string) {
       day: "numeric",
     });
   } catch {
-    return iso;
+    return iso ?? "-";
   }
 }
 
+function fmtR(amount?: string | number) {
+  if (amount === undefined || amount === null) return "0 R$";
+  // handle "∞"
+  if (typeof amount === "string" && amount.includes("∞")) return "∞R$";
+  const n = Number(amount);
+  if (!isFinite(n)) return "∞R$";
+  return `${n.toLocaleString()} R$`;
+}
+
+// ===== Tiny services (DRY) =====
+const userApi = {
+  async me() {
+    const r = await api.get<{ success: boolean; data: MeDTO }>("/auth/user/me");
+    return r.data.data;
+  },
+  async update(payload: { name: string; email: string }) {
+    const r = await api.patch<{ success: boolean; data: MeDTO }>("/auth/user/update", payload);
+    return r.data.data;
+  },
+  async myItems() {
+    const r = await api.get<{ success: boolean; data: MyItem[] }>("/v1/home/my-items", {
+      params: { limit: 50 },
+    });
+    return Array.isArray(r.data.data) ? r.data.data : [];
+  },
+};
+
+const walletApi = {
+  async get() {
+    const r = await api.get<{ success: boolean; data: WalletDTO }>("/auth/user/wallet");
+    return r.data.data;
+  },
+};
+
+// ===== View model =====
+type ViewUser = {
+  name: string;
+  email: string;
+  phone: string;
+  joinDate: string;
+  totalTrades: number;
+  successRate: number;
+  rating: number;
+  image: string | null;
+};
+
+// ===== Main Component =====
 export function UserProfile() {
   const router = useRouter();
 
@@ -60,179 +114,134 @@ export function UserProfile() {
   const [itemsLoading, setItemsLoading] = useState(false);
   const [itemsErr, setItemsErr] = useState<string | null>(null);
 
-  // สิ่งที่หน้าโชว์
-  const [userData, setUserData] = useState({
+  const [userData, setUserData] = useState<ViewUser>({
     name: "",
     email: "",
-    phone: "-",                 // ยังไม่ได้มีใน schema → placeholder
-    joinDate: "-",              // แปลงจาก createdAt
-    totalTrades: 0,             // ยังไม่มีใน schema → placeholder
-    successRate: 100,           // placeholder
-    rating: 5.0,                // placeholder
-    balance: "0R$",             // placeholder
-    image: "" as string | null, // สำหรับ Avatar
+    phone: "-",
+    joinDate: "-",
+    totalTrades: 0,
+    successRate: 100,
+    rating: 5.0,
+    image: null,
   });
 
-  // ฟอร์มแก้ไข
-  const [editData, setEditData] = useState(userData);
+  const [wallet, setWallet] = useState<WalletDTO | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletErr, setWalletErr] = useState<string | null>(null);
 
-  // โหลดข้อมูลผู้ใช้จาก /api/auth/user/me
+  const [editData, setEditData] = useState({ name: "", email: "" });
+
+  // ===== Load profile + wallet (DRY พร้อมกัน) =====
   useEffect(() => {
     let alive = true;
-
     (async () => {
       try {
         setLoading(true);
         setErr(null);
 
-        // ตรวจสถานะ admin mock เหมือนเดิม (ถ้าคุณไม่ใช้จริง ลบทิ้งได้)
-        const adminStatus = localStorage.getItem("isAdmin");
-        if (adminStatus === "true") {
+        // admin mock
+        const adminFlag = typeof window !== "undefined" ? localStorage.getItem("isAdmin") === "true" : false;
+        if (adminFlag) {
           if (!alive) return;
           setIsAdmin(true);
-          const admin = {
+          setUserData({
             name: "Admin",
             email: "admin@gmail.com",
             phone: "+1 (555) ADMIN",
+            joinDate: "-",
             totalTrades: 0,
             successRate: 100,
             rating: 5.0,
-            balance: "∞R$",
-            joinDate: "-",
-            image: null as string | null,
-          };
-          setUserData((prev) => ({ ...prev, ...admin }));
-          setEditData((prev) => ({ ...prev, ...admin }));
+            image: null,
+          });
+          setEditData({ name: "Admin", email: "admin@gmail.com" });
+          // wallet ของ admin (mock)
+          setWallet({ balance: "∞", held: "0", available: "∞" });
           return;
         }
 
-        // 1) หยิบ token ถ้ามี
-        const token = localStorage.getItem("token") || "";
-
-        // 2) ยิง /api/auth/user/me
-        //    - ถ้ามี token จะส่ง Authorization header
-        //    - ถ้าไม่มี token จะลองด้วย cookie session (credentials: "include")
-        const res = await fetch("/api/auth/user/me", {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: "include",
-          cache: "no-store",
-        });
-
-        const text = await res.text();
-        const json = text ? JSON.parse(text) : {};
-
-        if (!res.ok || !json?.success) {
-          throw new Error(json?.error || `Load profile failed (${res.status})`);
-        }
-
-        const me: MeDTO = json.data;
+        // โหลด profile + wallet ควบ
+        const [me, w] = await Promise.all([userApi.me(), walletApi.get()]);
         if (!alive) return;
 
-        const mapped = {
+        const mapped: ViewUser = {
           name: me.name || "",
           email: me.email || "",
-          phone: "-", // ไม่มีใน schema
+          phone: "-",
           joinDate: fmtDate(me.createdAt),
           totalTrades: 0,
           successRate: 100,
           rating: 5.0,
-          balance: "0R$",
           image: me.image ?? null,
         };
+        console.log(me.image);
 
+        setIsAdmin(false);
         setUserData(mapped);
-        setEditData(mapped);
+        setEditData({ name: mapped.name, email: mapped.email });
+        setWallet(w);
       } catch (e: any) {
-        if (!alive) return;
-        setErr(e?.message || "Load profile failed");
+        if (alive) setErr(e?.message || "Load profile/wallet failed");
       } finally {
         if (alive) setLoading(false);
       }
     })();
-
     return () => {
       alive = false;
     };
   }, []);
 
-const handleSave = async () => {
-  if (isAdmin) return;
+  // ===== Load items =====
+  useEffect(() => {
+    if (isAdmin) return; // admin ไม่โหลด
+    let alive = true;
+    (async () => {
+      try {
+        setItemsLoading(true);
+        setItemsErr(null);
+        const items = await userApi.myItems();
+        if (!alive) return;
+        setMyItems(items);
+      } catch (e: any) {
+        if (alive) setItemsErr(e?.message || "Load my items failed");
+      } finally {
+        if (alive) setItemsLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [isAdmin]);
 
-  setSaving(true);
-  setErr(null);
-
-  try {
-    const token = localStorage.getItem("token") || "";
-    const res = await fetch("/api/auth/user/update", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        name: editData.name,
-        email: editData.email,
-      }),
-    });
-
-    const json = await res.json();
-    if (!res.ok || !json?.success) throw new Error(json?.error || "Update failed");
-
-    // อัปเดตหน้าตามค่าที่เพิ่งแก้
-    setUserData((p) => ({ ...p, name: editData.name, email: editData.email }));
-    setIsEditing(false);
-    // ถ้าอยากดึงข้อมูลใหม่จากเซิร์ฟเวอร์ด้วยก็เพิ่ม:
-    // router.refresh(); // (App Router)
-    // หรือ window.location.reload();
-  } catch (e: any) {
-    setErr(e?.message || "Update failed");
-  } finally {
-    setSaving(false);
-  }
-};
-
-useEffect(() => {
-  let alive = true;
-  (async () => {
+  const handleSave = useCallback(async () => {
+    if (isAdmin) return; // admin mock ไม่ให้แก้
     try {
-      setItemsLoading(true);
-      setItemsErr(null);
-      const token = localStorage.getItem("token") || "";
-      const r = await fetch("/api/v1/home/my-items?limit=50", {
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: "include",
-        cache: "no-store",
-      });
-      const txt = await r.text();
-      const j = txt ? JSON.parse(txt) : {};
-      if (!r.ok || !j?.success) throw new Error(j?.error || `Load my items failed (${r.status})`);
-      if (!alive) return;
-      setMyItems(Array.isArray(j.data) ? j.data : []);
-    } catch (e:any) {
-      if (alive) setItemsErr(e?.message || "Load my items failed");
+      setSaving(true);
+      setErr(null);
+      const updated = await userApi.update({ name: editData.name, email: editData.email });
+      setUserData((p) => ({
+        ...p,
+        name: updated.name,
+        email: updated.email,
+      }));
+      setIsEditing(false);
+      window.location.reload();
+      
+    } catch (e: any) {
+      setErr(e?.message || "Update failed");
     } finally {
-      if (alive) setItemsLoading(false);
+      setSaving(false);
     }
-  })();
-  return () => { alive = false; };
-}, []);
-
+  }, [editData.name, editData.email, isAdmin]);
 
   const handleCancel = () => {
-    setEditData(userData);
+    setEditData({ name: userData.name, email: userData.email });
     setIsEditing(false);
   };
 
   const handleAddRobux = () => {
     router.push("/add-money");
   };
-
-  const recentItems = [
-    { id: 1, name: "Dragon Fruit", price: "500R$", status: "sold", date: "2 days ago" },
-    { id: 2, name: "Shadow Sword", price: "750R$", status: "listed", date: "1 week ago" },
-    { id: 3, name: "Golden Box", price: "1200R$", status: "sold", date: "2 weeks ago" },
-  ];
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -252,11 +261,7 @@ useEffect(() => {
                     {(userData.name || "U").slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <Badge
-                  className={
-                    isAdmin ? "bg-red-500/20 text-red-400 mb-2" : "bg-primary/20 text-primary mb-2"
-                  }
-                >
+                <Badge className={isAdmin ? "bg-red-500/20 text-red-400 mb-2" : "bg-primary/20 text-primary mb-2"}>
                   {isAdmin ? "System Administrator" : "Verified Trader"}
                 </Badge>
                 <div className="flex items-center gap-1">
@@ -266,9 +271,7 @@ useEffect(() => {
                     ({isAdmin ? "Admin" : `${userData.totalTrades} trades`})
                   </span>
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  Joined: {userData.joinDate}
-                </div>
+                <div className="text-xs text-muted-foreground mt-1">Joined: {userData.joinDate}</div>
               </div>
 
               {/* Details */}
@@ -278,9 +281,7 @@ useEffect(() => {
                     {isEditing ? (
                       <Input
                         value={editData.name}
-                        onChange={(e) =>
-                          setEditData((prev) => ({ ...prev, name: e.target.value }))
-                        }
+                        onChange={(e) => setEditData((prev) => ({ ...prev, name: e.target.value }))}
                         className="bg-input border-border text-foreground"
                         disabled={isAdmin}
                       />
@@ -297,9 +298,10 @@ useEffect(() => {
                               size="sm"
                               onClick={handleSave}
                               className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                              disabled={saving}
                             >
                               <Save className="h-4 w-4 mr-1" />
-                              Save
+                              {saving ? "Saving..." : "Save"}
                             </Button>
                             <Button
                               size="sm"
@@ -341,35 +343,21 @@ useEffect(() => {
                     {isEditing && !isAdmin ? (
                       <Input
                         value={editData.email}
-                        onChange={(e) =>
-                          setEditData((prev) => ({ ...prev, email: e.target.value }))
-                        }
+                        onChange={(e) => setEditData((prev) => ({ ...prev, email: e.target.value }))}
                         className="bg-input border-border text-foreground"
                       />
                     ) : (
                       <p className="text-muted-foreground">{userData.email || "-"}</p>
                     )}
                   </div>
-
-                  {/* <div className="space-y-2">
-                    <Label className="text-card-foreground font-medium">Phone</Label>
-                    {isEditing && !isAdmin ? (
-                      <Input
-                        value={editData.phone}
-                        onChange={(e) =>
-                          setEditData((prev) => ({ ...prev, phone: e.target.value }))
-                        }
-                        className="bg-input border-border text-foreground"
-                      />
-                    ) : (
-                      <p className="text-muted-foreground">{userData.phone}</p>
-                    )}
-                  </div> */}
                 </div>
 
+                {/* Stats */}
                 <div className="flex flex-wrap gap-4 pt-2">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-accent">{userData.balance}</p>
+                    <p className="text-2xl font-bold text-accent">
+                      {isAdmin ? "∞R$" : fmtR(wallet?.available)}
+                    </p>
                     <p className="text-sm text-muted-foreground">Balance</p>
                   </div>
                   <div className="text-center">
@@ -383,6 +371,11 @@ useEffect(() => {
                     <p className="text-sm text-muted-foreground">Success Rate</p>
                   </div>
                 </div>
+
+                {/* Wallet detail errors (optional) */}
+                {!isAdmin && walletErr && (
+                  <div className="text-xs text-red-500">Wallet: {walletErr}</div>
+                )}
               </div>
             </div>
           )}
@@ -433,7 +426,10 @@ useEffect(() => {
                 )}
 
                 {myItems.map((it) => (
-                  <div key={it.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                  <div
+                    key={it.id}
+                    className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
+                  >
                     <div className="flex items-center gap-3">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -482,16 +478,36 @@ useEffect(() => {
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium text-card-foreground">Robux Points</h3>
                   <div className="bg-muted/50 p-4 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-card-foreground">Current Balance</span>
-                      <span className="text-2xl font-bold text-accent">{userData.balance}</span>
-                    </div>
-                    <Button
-                      onClick={handleAddRobux}
-                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                    >
-                      Add Robux
-                    </Button>
+                    {walletLoading ? (
+                      <div className="text-muted-foreground">Loading wallet…</div>
+                    ) : walletErr ? (
+                      <div className="text-red-500">Error: {walletErr}</div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-card-foreground">Current Balance</span>
+                          <span className="text-2xl font-bold text-accent">
+                            {fmtR(wallet?.available)}
+                          </span>
+                        </div>
+                        <div className="text-sm text-muted-foreground space-y-1">
+                          <div>Balance (total): {fmtR(wallet?.balance)}</div>
+                          <div>Held: {fmtR(wallet?.held)}</div>
+                          <div className="text-xs">
+                            Updated:{" "}
+                            {wallet?.updatedAt
+                              ? new Date(wallet.updatedAt).toLocaleString()
+                              : "-"}
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => router.push("/add-money")}
+                          className="w-full mt-3 bg-primary hover:bg-primary/90 text-primary-foreground"
+                        >
+                          Add Robux
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -499,14 +515,6 @@ useEffect(() => {
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-card-foreground">Account Actions</h3>
                 <div className="space-y-2">
-                  {/* {!isAdmin && (
-                    // <Button
-                    //   variant="outline"
-                    //   className="w-full justify-start border-border text-card-foreground bg-transparent"
-                    // >
-                    //   Change Password
-                    // </Button>
-                  )} */}
                   {isAdmin ? (
                     <Button
                       variant="destructive"

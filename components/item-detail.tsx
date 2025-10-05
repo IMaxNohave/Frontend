@@ -1,11 +1,26 @@
+// components/item-detail.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { api } from "@/app/service/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Heart, Share2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
+
+// shadcn confirm dialog
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface ItemDetailProps {
   itemId: string;
@@ -15,50 +30,52 @@ type Item = {
   id: string;
   name: string;
   price: number;
-  category: string;
+  category: string | null;
   image: string | null;
   seller: string;
   sellerEmail?: string | null;
+  sellerId?: string | null;
   description?: string | null;
-  rarity?: string;
-  condition?: string;
-  status?: number;
-  sellerId?: string;
+  rarity?: string | null;
+  condition?: string | null;
+  status?: number; // 1 = available
+};
+
+type Me = {
+  id: string;
+  name: string;
+  email: string;
+  image?: string | null;
 };
 
 export function ItemDetail({ itemId }: ItemDetailProps) {
   const router = useRouter();
+
   const [item, setItem] = useState<Item | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [buying, setBuying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const currentUserEmail =
-    typeof window !== "undefined" ? localStorage.getItem("userEmail") : null;
-  const isAdmin = currentUserEmail === "admin@gmail.com";
+  // โปรไฟล์ผู้ใช้จาก backend (เชื่อถือได้กว่า localStorage)
+  const [me, setMe] = useState<Me | null>(null);
+  const [meLoaded, setMeLoaded] = useState(false);
 
-  // โหลดข้อมูล item
+  // ---- โหลด Item ----
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
         setLoading(true);
         setError(null);
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("token") || ""
-            : "";
-        const res = await fetch(`/api/v1/items/${itemId}`, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          cache: "no-store",
-        });
-        const data = await res.json();
-        if (!res.ok || !data?.success) {
-          throw new Error(data?.error || `Failed to load item (${res.status})`);
+        const res = await api.get<{ data: Item; success?: boolean; error?: string }>(
+          `/v1/items/${itemId}`
+        );
+        if (res.status >= 400 || res.data?.success === false) {
+          throw new Error(res.data?.error || `Failed to load item (${res.status})`);
         }
-        if (alive) setItem(data.data);
+        if (alive) setItem(res.data.data);
       } catch (e: any) {
         if (alive) setError(e?.message || "Failed to load item");
       } finally {
@@ -70,62 +87,121 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
     };
   }, [itemId]);
 
+  // ---- โหลดโปรไฟล์ผู้ใช้ (ถ้ามี token) ----
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        setMeLoaded(false);
+        const res = await api.get<{ success: boolean; data: Me }>("/auth/user/me");
+        if (!alive) return;
+        if (res.data?.success) setMe(res.data.data);
+      } catch (e: any) {
+        // 401 = ยังไม่ล็อกอิน → ปล่อย me = null
+      } finally {
+        if (alive) setMeLoaded(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // ---- เช็คเจ้าของ: เทียบทั้ง id และ email (ถ้ามี) ----
   const isOwner = useMemo(() => {
     if (!item) return false;
-    return currentUserEmail && item.sellerEmail
-      ? currentUserEmail === item.sellerEmail
-      : false;
-  }, [item, currentUserEmail]);
+    if (!me) return false;
+    if (item.sellerId && me.id && item.sellerId === me.id) return true;
+    if (item.sellerEmail && me.email && item.sellerEmail === me.email) return true;
+    return false;
+  }, [item, me]);
 
-  const canEditDelete = isAdmin || isOwner;
+  // ---- แสดงปุ่มซื้อได้ไหม ----
+  const canBuy = useMemo(() => {
+    if (!item) return false;
+    if (isOwner) return false;
+    if (typeof item.status === "number" && item.status !== 1) return false; // ไม่พร้อมขาย
+    return true;
+  }, [item, isOwner]);
 
-  const handleEdit = () => {
-    if (!item) return;
-    router.push(`/edit-item/${item.id}`);
-  };
+  const handleEdit = () => item && router.push(`/edit-item/${item.id}`);
 
   const handleDelete = async () => {
     if (!item) return;
-    if (
-      !confirm(
-        "Are you sure you want to delete this item? This action cannot be undone."
-      )
-    )
-      return;
-    // TODO: เรียก API ลบของจริง (ถ้าทำ endpoint ไว้ เช่น DELETE /v1/items/:id)
-    alert("Item deleted successfully!");
-    router.push("/marketplace");
+    if (!confirm(`Delete "${item.name}" ?`)) return;
+    try {
+      alert("Item deleted successfully! (demo)");
+      router.push("/marketplace");
+    } catch (e: any) {
+      alert(e?.message || "Failed to delete");
+    }
   };
 
   const handleBuy = async () => {
-    if (!item) return;
+    if (!item || buying) return;
+
+    // guard ฝั่ง FE อีกชั้น
+    if (isOwner) {
+      alert("You cannot buy your own item.");
+      return;
+    }
+    if (!canBuy) {
+      alert("This item is not available for purchase.");
+      return;
+    }
+
+    // ต้องล็อกอินก่อนซื้อ
+    if (!meLoaded || !me) {
+      if (confirm("You need to sign in to buy this item. Go to sign in page?")) {
+        router.push("/login");
+      }
+      return;
+    }
+
     try {
-      const token = localStorage.getItem("token") || "";
-      const res = await fetch(`/api/v1/home`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ item_id: item.id }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data?.success)
-        throw new Error(data?.error || "Buy failed");
+      setBuying(true);
+      const res = await api.post(`/v1/home/buy`, { item_id: item.id });
+      const ok = (res.data && (res.data.success ?? true)) as boolean;
+      if (!ok) throw new Error(res.data?.error || "Buy failed");
+      setConfirmOpen(false);
       alert("Order created!");
-      // ไปหน้าออเดอร์ หรือรีเฟรช
-      // router.push(`/order/${data.data.orderId}`)
+      // router.push(`/order/${res.data.data.orderId}`);
     } catch (e: any) {
+      // ถ้า token หมดอายุ
+      if (e?.response?.status === 401) {
+        if (confirm("Your session has expired. Sign in again?")) {
+          router.push("/login");
+          return;
+        }
+      }
       alert(e?.message || "Failed to buy");
+    } finally {
+      setBuying(false);
     }
   };
 
   if (loading) {
-    return <div className="max-w-4xl mx-auto">Loading...</div>;
+    return (
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-6 h-9 w-40 bg-muted rounded animate-pulse" />
+        <div className="grid grid-cols-12 gap-8">
+          <div className="col-span-12 md:col-span-7">
+            <div className="aspect-square bg-muted rounded-lg animate-pulse" />
+          </div>
+          <div className="col-span-12 md:col-span-5 space-y-4">
+            <div className="h-8 bg-muted rounded animate-pulse" />
+            <div className="h-6 w-1/2 bg-muted rounded animate-pulse" />
+            <div className="h-24 bg-muted rounded animate-pulse" />
+            <div className="h-10 bg-muted rounded animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
   }
+
   if (error || !item) {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <Button variant="ghost" onClick={() => router.back()} className="mb-6">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
@@ -135,12 +211,11 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
     );
   }
 
-  // รูป: ถ้าเก็บเป็น key ใน R2 ให้แปลงก่อน; ถ้าเก็บเป็น URL เต็มก็ใช้เลย
   const imageSrc = item.image || "/placeholder.svg";
-  const priceText = `${item.price}R$`;
+  const priceText = `${Number(item.price).toLocaleString()}R$`;
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <Button
         variant="ghost"
         onClick={() => router.back()}
@@ -150,117 +225,82 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
         Back to Marketplace
       </Button>
 
-      <div className="grid md:grid-cols-2 gap-8">
-        {/* Image Section */}
-        <Card className="bg-card border-border">
-          <CardContent className="p-6">
-            <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-4">
-              <img
-                src={imageSrc}
-                alt={item.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 bg-transparent"
-              >
-                <Heart className="h-4 w-4 mr-2" />
-                Favorite
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 bg-transparent"
-                onClick={() => {
-                  if (navigator.share) {
-                    navigator
-                      .share({ title: item.name, url: window.location.href })
-                      .catch(() => {});
-                  } else {
-                    navigator.clipboard.writeText(window.location.href);
-                    alert("Link copied");
-                  }
-                }}
-              >
-                <Share2 className="h-4 w-4 mr-2" />
-                Share
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-12 gap-8">
+        {/* LEFT */}
+        <div className="col-span-12 md:col-span-7">
+          <Card className="bg-card border-border">
+            <CardContent className="p-6">
+              <div className="aspect-square bg-muted rounded-lg overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imageSrc} alt={item.name} className="w-full h-full object-cover" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Details Section */}
-        <div className="space-y-6">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <h1 className="text-3xl font-bold text-foreground">
-                {item.name}
-              </h1>
-              {item.category && (
-                <Badge variant="secondary" className="bg-accent/20 text-accent">
-                  #{item.category}
-                </Badge>
-              )}
-            </div>
-            <p className="text-muted-foreground">Sold by {item.seller}</p>
-          </div>
+        {/* RIGHT */}
+        <div className="col-span-12 md:col-span-5 flex flex-col gap-4">
+          <h1 className="text-3xl font-bold text-foreground">{item.name}</h1>
 
           <div className="flex items-center gap-4">
             <span className="text-4xl font-bold text-accent">{priceText}</span>
-            {item.rarity && (
-              <Badge className="bg-primary/20 text-primary">
-                {item.rarity}
-              </Badge>
-            )}
+            {item.rarity && <Badge className="bg-primary/20 text-primary">{item.rarity}</Badge>}
           </div>
 
           <Card className="bg-card border-border">
             <CardContent className="p-4">
-              <h3 className="font-semibold text-card-foreground mb-2">
-                Item Details
-              </h3>
-              <div className="space-y-2 text-sm">
+              <h3 className="font-semibold text-card-foreground mb-2">Item Details</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 {item.condition && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Condition:</span>
-                    <span className="text-card-foreground">
-                      {item.condition}
-                    </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Condition</span>
+                    <span className="text-card-foreground">{item.condition}</span>
                   </div>
                 )}
                 {item.rarity && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Rarity:</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Rarity</span>
                     <span className="text-card-foreground">{item.rarity}</span>
                   </div>
                 )}
+
                 {item.category && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Category:</span>
-                    <span className="text-card-foreground">
-                      {item.category}
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Category
                     </span>
+                    <Badge
+                      variant="secondary"
+                      className="px-2 py-1 text-sm bg-accent/15 text-accent ring-1 ring-accent/40"
+                    >
+                      #{item.category}
+                    </Badge>
                   </div>
                 )}
+
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Seller
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-3 py-1 text-sm font-medium text-card-foreground">
+                    {item.seller}
+                  </span>
+                </div>
               </div>
             </CardContent>
           </Card>
 
           {item.description && (
-            <div>
-              <h3 className="font-semibold text-foreground mb-2">
-                Description
-              </h3>
-              <p className="text-muted-foreground leading-relaxed">
-                {item.description}
-              </p>
-            </div>
+            <Card className="bg-card border-border">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-foreground mb-2">Description</h3>
+                <p className="text-muted-foreground leading-relaxed">{item.description}</p>
+              </CardContent>
+            </Card>
           )}
 
-          {canEditDelete && (
+          {/* Admin controls */}
+          {/* {(me && isOwner) && (
             <div className="flex gap-2 p-4 bg-muted/30 rounded-lg border border-border">
               <Button
                 variant="outline"
@@ -277,21 +317,49 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
                 Delete Item
               </Button>
             </div>
-          )}
+          )} */}
 
+          {/* Buy Section */}
           <div className="space-y-3">
-            <Button
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3"
-              onClick={handleBuy}
-            >
-              Buy Now - {priceText}
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground bg-transparent"
-            >
-              Make Offer
-            </Button>
+            {!canBuy ? (
+              <p className="text-sm text-muted-foreground">
+                {isOwner
+                  ? "You are the owner of this item. You cannot purchase your own listing."
+                  : "This item is not available to buy right now."}
+              </p>
+            ) : (
+              <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    disabled={buying}
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3"
+                    onClick={() => setConfirmOpen(true)}
+                  >
+                    {buying ? "Processing..." : `Buy Now - ${priceText}`}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm your order</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      You are about to purchase <b>{item.name}</b> for <b>{priceText}</b>.
+                      <br />
+                      Please confirm to create the order.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={buying}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleBuy}
+                      disabled={buying}
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      {buying ? "Processing..." : "Confirm Order"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </div>
       </div>
