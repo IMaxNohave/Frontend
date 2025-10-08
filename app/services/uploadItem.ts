@@ -1,3 +1,5 @@
+import { api } from "@/app/services/api";
+
 // services/uploadItem.ts
 export type PresignResp = {
   success: boolean;

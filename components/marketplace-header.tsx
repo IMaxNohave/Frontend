@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { api } from "@/app/services/api";
+import { useAuthStore } from "@/stores/authStore";
 
 type Props = { searchTerm?: string; onSearchChange?: (v: string) => void };
 
@@ -35,24 +36,21 @@ export function MarketplaceHeader({
   const router = useRouter();
 
   // state จาก userStore
+  const isReady = useAuthStore((s) => s.isReady);
   const isAdmin = useUserStore((s) => s.isAdmin);
+  const fetchWallet = useUserStore((s) => s.fetchWallet);
   const wallet = useUserStore((s) => s.wallet);
   const walletLoading = useUserStore((s) => s.walletLoading);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // // bootstrap ครั้งแรก (initToken + me + wallet)
-  // useEffect(() => {
-  //   bootstrap();
-  // }, [bootstrap]);
-
-  // // (ถ้าต้องการ refresh wallet เมื่อเข้าเพจนี้ทุกครั้ง)
-  // useEffect(() => {
-  //   if (!isAdmin) fetchWallet();
-  // }, [isAdmin, fetchWallet]);
-
   // search
   const [internalQuery, setInternalQuery] = useState<string>(searchTerm ?? "");
   useEffect(() => setInternalQuery(searchTerm ?? ""), [searchTerm]);
+
+  useEffect(() => {
+    if (!isReady) return;
+    fetchWallet();
+  }, [isReady]);
 
   const activeOrdersHasNew = false;
 

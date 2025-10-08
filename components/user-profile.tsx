@@ -34,12 +34,13 @@ export function UserProfile() {
     updateMe,
   } = useUserStore();
 
-  const { isReady } = useAuthStore();
+  const isReady = useAuthStore((s) => s.isReady);
 
   // bootstrap ตอนเข้าเพจ
   useEffect(() => {
+    if (!isReady) return;
     bootstrap();
-  }, []);
+  }, [isReady]);
 
   // โหลด items (เฉพาะ user ปกติ)
   useEffect(() => {

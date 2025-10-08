@@ -39,33 +39,32 @@ export function useOrderDetail(
     markMessagesSeen: s.markMessagesSeen,
   }));
 
-  // const initToken = useAuthStore((s) => s.initToken);
+  const isReady = useAuthStore((s) => s.isReady);
 
-  // // 1) init token + me
-  // useEffect(() => {
-  //   void initToken();
-  // }, [initToken]);
   useEffect(() => {
+    if (!isReady) return;
     const c = new AbortController();
     void fetchMe(c.signal);
     return () => c.abort();
-  }, [fetchMe]);
+  }, [isReady]);
 
   // 2) load order detail
   useEffect(() => {
+    if (!isReady) return;
     const c = new AbortController();
     void fetchOrderById(orderId, c.signal);
     return () => c.abort();
-  }, [orderId, fetchOrderById]);
+  }, [isReady, orderId]);
 
   // 3) optional polling
   useEffect(() => {
+    if (!isReady) return;
     if (!opts?.pollMs) return;
     const itv = setInterval(() => {
       void fetchOrderById(orderId);
     }, opts.pollMs);
     return () => clearInterval(itv);
-  }, [orderId, fetchOrderById, opts?.pollMs]);
+  }, [orderId, opts?.pollMs, isReady]);
 
   const order = orderById[orderId] || null;
 
