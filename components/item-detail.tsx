@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { api } from "@/app/service/api";
+import { api } from "@/app/services/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -69,11 +69,15 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
       try {
         setLoading(true);
         setError(null);
-        const res = await api.get<{ data: Item; success?: boolean; error?: string }>(
-          `/v1/items/${itemId}`
-        );
+        const res = await api.get<{
+          data: Item;
+          success?: boolean;
+          error?: string;
+        }>(`/v1/items/${itemId}`);
         if (res.status >= 400 || res.data?.success === false) {
-          throw new Error(res.data?.error || `Failed to load item (${res.status})`);
+          throw new Error(
+            res.data?.error || `Failed to load item (${res.status})`
+          );
         }
         if (alive) setItem(res.data.data);
       } catch (e: any) {
@@ -93,7 +97,9 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
     (async () => {
       try {
         setMeLoaded(false);
-        const res = await api.get<{ success: boolean; data: Me }>("/auth/user/me");
+        const res = await api.get<{ success: boolean; data: Me }>(
+          "/auth/user/me"
+        );
         if (!alive) return;
         if (res.data?.success) setMe(res.data.data);
       } catch (e: any) {
@@ -112,7 +118,8 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
     if (!item) return false;
     if (!me) return false;
     if (item.sellerId && me.id && item.sellerId === me.id) return true;
-    if (item.sellerEmail && me.email && item.sellerEmail === me.email) return true;
+    if (item.sellerEmail && me.email && item.sellerEmail === me.email)
+      return true;
     return false;
   }, [item, me]);
 
@@ -152,7 +159,9 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
 
     // ต้องล็อกอินก่อนซื้อ
     if (!meLoaded || !me) {
-      if (confirm("You need to sign in to buy this item. Go to sign in page?")) {
+      if (
+        confirm("You need to sign in to buy this item. Go to sign in page?")
+      ) {
         router.push("/login");
       }
       return;
@@ -232,7 +241,11 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
             <CardContent className="p-6">
               <div className="aspect-square bg-muted rounded-lg overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imageSrc} alt={item.name} className="w-full h-full object-cover" />
+                <img
+                  src={imageSrc}
+                  alt={item.name}
+                  className="w-full h-full object-cover"
+                />
               </div>
             </CardContent>
           </Card>
@@ -244,17 +257,25 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
 
           <div className="flex items-center gap-4">
             <span className="text-4xl font-bold text-accent">{priceText}</span>
-            {item.rarity && <Badge className="bg-primary/20 text-primary">{item.rarity}</Badge>}
+            {item.rarity && (
+              <Badge className="bg-primary/20 text-primary">
+                {item.rarity}
+              </Badge>
+            )}
           </div>
 
           <Card className="bg-card border-border">
             <CardContent className="p-4">
-              <h3 className="font-semibold text-card-foreground mb-2">Item Details</h3>
+              <h3 className="font-semibold text-card-foreground mb-2">
+                Item Details
+              </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 {item.condition && (
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Condition</span>
-                    <span className="text-card-foreground">{item.condition}</span>
+                    <span className="text-card-foreground">
+                      {item.condition}
+                    </span>
                   </div>
                 )}
                 {item.rarity && (
@@ -293,8 +314,12 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
           {item.description && (
             <Card className="bg-card border-border">
               <CardContent className="p-4">
-                <h3 className="font-semibold text-foreground mb-2">Description</h3>
-                <p className="text-muted-foreground leading-relaxed">{item.description}</p>
+                <h3 className="font-semibold text-foreground mb-2">
+                  Description
+                </h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  {item.description}
+                </p>
               </CardContent>
             </Card>
           )}
@@ -342,13 +367,16 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Confirm your order</AlertDialogTitle>
                     <AlertDialogDescription>
-                      You are about to purchase <b>{item.name}</b> for <b>{priceText}</b>.
+                      You are about to purchase <b>{item.name}</b> for{" "}
+                      <b>{priceText}</b>.
                       <br />
                       Please confirm to create the order.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel disabled={buying}>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel disabled={buying}>
+                      Cancel
+                    </AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleBuy}
                       disabled={buying}

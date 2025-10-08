@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,69 +13,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, X, Plus } from "lucide-react";
+import { Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-
-type Category = { id: string; name: string; detail?: string | null };
+import { useCategories } from "@/hooks/useCategories";
+import { useItemStore } from "@/stores/itemStore";
+import { useAuthStore } from "@/stores/authStore";
 
 export function ItemUploadForm() {
   const router = useRouter();
+  const { categories, loading: catLoading, error: catError } = useCategories();
+  const token = useAuthStore((s) => s.token);
 
   const [isLoading, setIsLoading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     price: "",
-    categoryId: "", // ✅ เก็บเป็น id ชัดเจน
-    tags: [] as string[],
+    categoryId: "",
+    // tags: [] as string[],
   });
-  const [newTag, setNewTag] = useState("");
-
-  // Categories
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [catLoading, setCatLoading] = useState(false);
-  const [catError, setCatError] = useState<string | null>(null);
-
-  // base URL (ถ้าใช้ reverse proxy/Next API routes อาจปล่อยว่าง)
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        setCatLoading(true);
-        setCatError(null);
-
-        const token = localStorage.getItem("token") || "";
-        const res = await fetch(`/api/v1/home/categories`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          cache: "no-store",
-        });
-
-        const text = await res.text();
-        const json = text ? JSON.parse(text) : {};
-        if (!res.ok || !json?.success) {
-          throw new Error(
-            json?.error || `Load categories failed (${res.status})`
-          );
-        }
-
-        const list: Category[] = Array.isArray(json.data) ? json.data : [];
-        if (alive) setCategories(list);
-      } catch (e: any) {
-        if (alive) setCatError(e?.message || "Load categories failed");
-      } finally {
-        if (alive) setCatLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -85,16 +43,6 @@ export function ItemUploadForm() {
     reader.onload = (ev) => setPreview(ev.target?.result as string);
     reader.readAsDataURL(f);
   };
-
-  const addTag = () => {
-    const t = newTag.trim();
-    if (t && !formData.tags.includes(t)) {
-      setFormData((p) => ({ ...p, tags: [...p.tags, t] }));
-      setNewTag("");
-    }
-  };
-  const removeTag = (t: string) =>
-    setFormData((p) => ({ ...p, tags: p.tags.filter((x) => x !== t) }));
 
   const parseJson = async (res: Response) => {
     const text = await res.text();
@@ -117,9 +65,7 @@ export function ItemUploadForm() {
         throw new Error("กรอกข้อมูลให้ครบ");
 
       setIsLoading(true);
-      const token = localStorage.getItem("token") || "";
-
-      // 1) ขอ presigned URL
+      // 1) presign
       const pre = await fetch(`/api/v1/upload/r2/upload-url`, {
         method: "POST",
         headers: {
@@ -134,20 +80,17 @@ export function ItemUploadForm() {
       if (!preJson?.success)
         throw new Error(preJson?.error || "ขอ presign ไม่สำเร็จ");
 
-      // 2) PUT รูปขึ้น R2
+      // 2) upload
       const put = await fetch(preJson.data.uploadUrl, {
         method: "PUT",
-        headers: {
-          "Content-Type": file.type || "application/octet-stream",
-        },
+        headers: { "Content-Type": file.type || "application/octet-stream" },
         body: file,
       });
       if (!put.ok) throw new Error(await put.text());
 
-      // 3) ค่าที่จะเก็บใน DB (public url ถ้ามี, ไม่งั้น key)
       const imageForDb: string = preJson.data.imageUrl ?? preJson.data.key;
 
-      // 4) เรียกสร้าง item
+      // 3) create item
       const create = await fetch(`/api/v1/sales`, {
         method: "POST",
         headers: {
@@ -159,8 +102,8 @@ export function ItemUploadForm() {
           name: formData.name,
           description: formData.description,
           price: Number(formData.price),
-          category: formData.categoryId, // ✅ ฝั่ง backend รับ field ชื่อ category (UUID 36 ตัว)
-          tag: formData.tags.join(","),
+          category: formData.categoryId,
+          // tag: formData.tags.join(","),
         }),
       });
       if (!create.ok)
@@ -189,7 +132,7 @@ export function ItemUploadForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Image Upload */}
+          {/* Image */}
           <div className="space-y-2">
             <Label className="text-card-foreground font-medium">
               Item Image
@@ -197,6 +140,7 @@ export function ItemUploadForm() {
             <div className="border-2 border-dashed border-border rounded-lg p-6">
               {preview ? (
                 <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={preview || "/placeholder.svg"}
                     alt="Preview"
@@ -303,7 +247,6 @@ export function ItemUploadForm() {
               <Label className="text-card-foreground font-medium">
                 Category
               </Label>
-
               {catLoading ? (
                 <div className="text-sm text-muted-foreground">
                   Loading categories…
@@ -331,43 +274,6 @@ export function ItemUploadForm() {
               )}
             </div>
           </div>
-
-          {/* Tags */}
-          {/* <div className="space-y-2">
-            <Label className="text-card-foreground font-medium">Tags</Label>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Add a tag"
-                value={newTag}
-                onChange={(e) => setNewTag(e.target.value)}
-                className="bg-input border-border text-foreground"
-                onKeyDown={(e) =>
-                  e.key === "Enter" && (e.preventDefault(), addTag())
-                }
-              />
-              <Button
-                type="button"
-                onClick={addTag}
-                className="bg-accent hover:bg-accent/90 text-accent-foreground"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {formData.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {formData.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="px-2 py-1 rounded-md text-xs bg-accent/20 text-accent cursor-pointer"
-                    onClick={() => removeTag(tag)}
-                  >
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div> */}
 
           {/* Actions */}
           <div className="flex gap-4 pt-4">

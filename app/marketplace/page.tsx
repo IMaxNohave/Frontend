@@ -7,7 +7,6 @@ import { useMarketplace } from "@/hooks/useMarketplace";
 
 export default function MarketplacePage() {
   const {
-    token,
     selectedTag,
     setSelectedTag,
     searchTerm,
@@ -26,11 +25,7 @@ export default function MarketplacePage() {
         onSearchChange={setSearchTerm}
       />
       <div className="container mx-auto px-4 py-6">
-        <TagFilter
-          selectedTag={selectedTag}
-          onTagSelect={setSelectedTag}
-          token={token}
-        />
+        <TagFilter selectedTag={selectedTag} onTagSelect={setSelectedTag} />
 
         {/* ปรับ ItemGrid ให้รับ props ตรง ๆ จาก hook */}
         <ItemGrid

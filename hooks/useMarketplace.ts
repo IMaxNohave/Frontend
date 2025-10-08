@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo } from "react";
 import { useItemStore, useMarketplaceSlice } from "@/stores/itemStore";
+import { useAuthStore } from "@/stores/authStore";
 
 export function useMarketplace() {
-  // เลือกเฉพาะ slice ที่ต้องใช้ (ลด re-render)
+  // ===== store slices (reactive) =====
   const {
     selectedTag,
     searchTerm,
-    token,
     categories,
     catMap,
     items,
@@ -16,14 +16,12 @@ export function useMarketplace() {
     error,
     setSelectedTag,
     setSearchTerm,
-    initToken,
     fetchCategories,
     fetchItems,
     deleteItemOptimistic,
   } = useMarketplaceSlice((s) => ({
     selectedTag: s.selectedTag,
     searchTerm: s.searchTerm,
-    token: s.token,
     categories: s.categories,
     catMap: s.catMap,
     items: s.items,
@@ -31,30 +29,20 @@ export function useMarketplace() {
     error: s.error,
     setSelectedTag: s.setSelectedTag,
     setSearchTerm: s.setSearchTerm,
-    initToken: s.initToken,
     fetchCategories: s.fetchCategories,
     fetchItems: s.fetchItems,
     deleteItemOptimistic: s.deleteItemOptimistic,
   }));
 
-  // 1) init token ครั้งแรก
+  // 2) โหลด categories หลังจาก init เสร็จ (จะมี/ไม่มี token ก็ได้)
   useEffect(() => {
-    initToken();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // 2) โหลด categories เมื่อมี token
-  useEffect(() => {
-    if (!token) return;
     const controller = new AbortController();
     fetchCategories(controller.signal);
     return () => controller.abort();
-  }, [token, fetchCategories]);
+  }, []);
 
-  // 3) โหลด items ด้วย debounce + abort เมื่อ tag/search/token เปลี่ยน
+  // 3) โหลด items เมื่อ init เสร็จ + เมื่อ tag/search เปลี่ยน
   useEffect(() => {
-    if (!token) return;
-
     const controller = new AbortController();
     const t = setTimeout(() => {
       fetchItems(
@@ -67,9 +55,9 @@ export function useMarketplace() {
       clearTimeout(t);
       controller.abort();
     };
-  }, [token, selectedTag, searchTerm, fetchItems]);
+  }, []);
 
-  // 4) ฟิลเตอร์ฝั่ง client (ตอบสนองไว แม้ระหว่างรอ API)
+  // 4) ฟิลเตอร์ฝั่ง client
   const visibleItems = useMemo(() => {
     let list = items;
     if (selectedTag)
@@ -93,8 +81,6 @@ export function useMarketplace() {
   );
 
   return {
-    // state
-    token,
     selectedTag,
     searchTerm,
     categories,

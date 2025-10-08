@@ -1,136 +1,148 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { useRouter } from "next/navigation"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { useRouter } from "next/navigation";
 //import { useNavigate } from "react-router-dom"
 
 interface LoginFormProps {
-  onSwitchToSignup: () => void
+  onSwitchToSignup: () => void;
 }
 
 export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
   //const nav = useNavigate();
-  const [isLoading, setIsLoading] = useState(false)
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
-  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+    {}
+  );
+  const router = useRouter();
 
   const validateForm = () => {
-    const newErrors: { email?: string; password?: string } = {}
+    const newErrors: { email?: string; password?: string } = {};
 
     if (!email) {
-      newErrors.email = "Email is required"
+      newErrors.email = "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = "Invalid email address"
+      newErrors.email = "Invalid email address";
     }
 
     if (!password) {
-      newErrors.password = "Password is required"
+      newErrors.password = "Password is required";
     } else if (password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters"
+      newErrors.password = "Password must be at least 6 characters";
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleGoogleLogin = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     // Simulate Google login
     try {
-        const res = await fetch("/api/auth/signin/google"); // <- มี /auth
-        const data = await res.json();
-        if (data.redirect && data.url) {
-          window.location.assign(data.url); // วิ่งไป Google
-        } else {
-          console.error("Unexpected response:", data);
-        }
+      const res = await fetch("/api/auth/signin/google"); // <- มี /auth
+      const data = await res.json();
+      if (data.redirect && data.url) {
+        window.location.assign(data.url); // วิ่งไป Google
+      } else {
+        console.error("Unexpected response:", data);
+      }
     } finally {
-        setIsLoading(false);
-    }  
-  }
+      setIsLoading(false);
+    }
+  };
 
   const handleRobloxLogin = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     // Simulate Roblox login
     try {
-        const res = await fetch("/api/auth/signin/roblox"); // <- มี /auth
-        const data = await res.json();
-        if (data.redirect && data.url) {
-          window.location.assign(data.url); // วิ่งไป Roblox
-        } else {
-          console.error("Unexpected response:", data);
-        }
+      const res = await fetch("/api/auth/signin/roblox"); // <- มี /auth
+      const data = await res.json();
+      if (data.redirect && data.url) {
+        window.location.assign(data.url); // วิ่งไป Roblox
+      } else {
+        console.error("Unexpected response:", data);
+      }
     } finally {
-        setIsLoading(false);
-    }  
-  }
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!validateForm()) {
-      return
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
       if (email === "admin@gmail.com" && password === "123456") {
-        localStorage.setItem("isAdmin", "true")
+        localStorage.setItem("isAdmin", "true");
         localStorage.setItem(
           "currentUser",
           JSON.stringify({
             email: "admin@gmail.com",
             name: "Admin",
             role: "admin",
-          }),
-        )
-        router.push("/admin")
-        return
+          })
+        );
+        router.push("/admin");
+        return;
       }
 
-      localStorage.setItem("isAdmin", "false")
+      localStorage.setItem("isAdmin", "false");
       localStorage.setItem(
         "currentUser",
         JSON.stringify({
           email: email,
           name: "ProTrader123",
           role: "user",
-        }),
-      )
+        })
+      );
 
       const res = await fetch("/api/auth/signin/email", {
         method: "POST",
         credentials: "include",
-        headers: {"Content-Type": "application/json"},
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          password
-        })
-      })
+          password,
+        }),
+      });
 
-      router.push("/marketplace")
+      router.push("/marketplace");
     } catch (error) {
-      console.error("Login failed:", error)
+      console.error("Login failed:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <Card className="bg-card border-border">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-bold text-card-foreground">Login</CardTitle>
-        <CardDescription className="text-muted-foreground">Choose your preferred login method</CardDescription>
+        <CardTitle className="text-2xl font-bold text-card-foreground">
+          Login
+        </CardTitle>
+        <CardDescription className="text-muted-foreground">
+          Choose your preferred login method
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Button
@@ -170,7 +182,9 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
+            {errors.email && (
+              <p className="text-sm text-red-500">{errors.email}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="password" className="text-card-foreground">
@@ -184,7 +198,9 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
+            {errors.password && (
+              <p className="text-sm text-red-500">{errors.password}</p>
+            )}
           </div>
           <Button
             type="submit"
@@ -197,11 +213,14 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
 
         <div className="text-center text-sm text-muted-foreground">
           Don't have an account?{" "}
-          <button onClick={onSwitchToSignup} className="text-accent hover:text-accent/90 font-medium">
+          <button
+            onClick={onSwitchToSignup}
+            className="text-accent hover:text-accent/90 font-medium"
+          >
             Sign up here
           </button>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NavigationMenu } from "@/components/navigation-menu";
 import { useRouter } from "next/navigation";
+import { useUserStore } from "@/stores/userStore";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,71 +16,44 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { api } from "@/app/service/api";
+import { api } from "@/app/services/api";
 
-type WalletDTO = { balance: string; held: string; available: string; updatedAt?: string };
+type Props = { searchTerm?: string; onSearchChange?: (v: string) => void };
 
-type Props = {
-  searchTerm?: string;
-  onSearchChange?: (v: string) => void;
-};
-
-function fmtR(amount?: string | number) {
-  if (amount === undefined || amount === null) return "0 R$";
-  if (typeof amount === "string" && amount.includes("∞")) return "∞R$";
-  const n = Number(amount);
+function fmtR(v?: string | number) {
+  if (v === undefined || v === null) return "0 R$";
+  if (typeof v === "string" && v.includes("∞")) return "∞R$";
+  const n = Number(v);
   if (!isFinite(n)) return "∞R$";
   return `${n.toLocaleString()} R$`;
 }
 
-export function MarketplaceHeader({ searchTerm = "", onSearchChange }: Props = {}) {
+export function MarketplaceHeader({
+  searchTerm = "",
+  onSearchChange,
+}: Props = {}) {
   const router = useRouter();
 
-  // side menu
+  // state จาก userStore
+  const isAdmin = useUserStore((s) => s.isAdmin);
+  const wallet = useUserStore((s) => s.wallet);
+  const walletLoading = useUserStore((s) => s.walletLoading);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // admin flag (demo)
-  const isAdmin =
-    typeof window !== "undefined" && localStorage.getItem("userEmail") === "admin@gmail.com";
+  // // bootstrap ครั้งแรก (initToken + me + wallet)
+  // useEffect(() => {
+  //   bootstrap();
+  // }, [bootstrap]);
+
+  // // (ถ้าต้องการ refresh wallet เมื่อเข้าเพจนี้ทุกครั้ง)
+  // useEffect(() => {
+  //   if (!isAdmin) fetchWallet();
+  // }, [isAdmin, fetchWallet]);
 
   // search
   const [internalQuery, setInternalQuery] = useState<string>(searchTerm ?? "");
   useEffect(() => setInternalQuery(searchTerm ?? ""), [searchTerm]);
 
-  // wallet
-  const [wallet, setWallet] = useState<WalletDTO | null>(null);
-  const [walletLoading, setWalletLoading] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        setWalletLoading(true);
-        const res = await api.get<{ success: boolean; data: WalletDTO }>("/auth/user/wallet");
-        if (!alive) return;
-        if (!res.data?.success) throw new Error("Load wallet failed");
-        setWallet(res.data.data); // balance, held, available มาจาก DB
-      } catch (e: any) {
-        if (!alive) return;
-        // ถ้า 401 (ยังไม่ล็อกอิน/ token หมดอายุ) → แสดงค่า 0 R$
-        if (e?.response?.status === 401) {
-          setWallet(null);
-          // ถ้าต้องการเด้งไปหน้า Login: router.push("/login");
-        } else {
-          // error อื่น ๆ ก็ยังให้เห็น 0 R$
-          setWallet(null);
-          console.error("wallet error:", e?.message || e);
-        }
-      } finally {
-        if (alive) setWalletLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  // demo badge ที่ไอคอนกระเป๋า (ถ้าจะต่อข้อความใหม่จริง ให้ดึงจาก /v1/orders/my พร้อม last read)
   const activeOrdersHasNew = false;
 
   return (
@@ -121,7 +95,8 @@ export function MarketplaceHeader({ searchTerm = "", onSearchChange }: Props = {
                   placeholder="Search items…"
                   className="pl-10 bg-input border-border text-foreground"
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") onSearchChange?.(internalQuery ?? "");
+                    if (e.key === "Enter")
+                      onSearchChange?.(internalQuery ?? "");
                   }}
                 />
               </div>
@@ -130,7 +105,9 @@ export function MarketplaceHeader({ searchTerm = "", onSearchChange }: Props = {
             {/* right */}
             <div className="flex items-center gap-2">
               {walletLoading ? (
-                <span className="text-muted-foreground text-sm animate-pulse">Loading…</span>
+                <span className="text-muted-foreground text-sm animate-pulse">
+                  Loading…
+                </span>
               ) : (
                 <span className="text-accent font-bold text-lg">
                   {isAdmin ? "∞R$" : fmtR(wallet?.available ?? 0)}
@@ -159,7 +136,9 @@ export function MarketplaceHeader({ searchTerm = "", onSearchChange }: Props = {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-80">
-                  <DropdownMenuLabel>{isAdmin ? "Admin Dashboard" : "My Orders"}</DropdownMenuLabel>
+                  <DropdownMenuLabel>
+                    {isAdmin ? "Admin Dashboard" : "My Orders"}
+                  </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-center justify-center"
@@ -182,8 +161,10 @@ export function MarketplaceHeader({ searchTerm = "", onSearchChange }: Props = {
           </div>
         </div>
       </header>
-
-      <NavigationMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      <NavigationMenu
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+      />
     </>
   );
 }
