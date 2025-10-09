@@ -41,12 +41,12 @@ export function useOrderDetail(
 
   const isReady = useAuthStore((s) => s.isReady);
 
-  useEffect(() => {
-    if (!isReady) return;
-    const c = new AbortController();
-    void fetchMe(c.signal);
-    return () => c.abort();
-  }, [isReady]);
+  // useEffect(() => {
+  //   if (!isReady) return;
+  //   const c = new AbortController();
+  //   void fetchMe(c.signal);
+  //   return () => c.abort();
+  // }, [isReady]);
 
   // 2) load order detail
   useEffect(() => {
@@ -57,14 +57,14 @@ export function useOrderDetail(
   }, [isReady, orderId]);
 
   // 3) optional polling
-  useEffect(() => {
-    if (!isReady) return;
-    if (!opts?.pollMs) return;
-    const itv = setInterval(() => {
-      void fetchOrderById(orderId);
-    }, opts.pollMs);
-    return () => clearInterval(itv);
-  }, [orderId, opts?.pollMs, isReady]);
+  // useEffect(() => {
+  //   if (!isReady) return;
+  //   if (!opts?.pollMs) return;
+  //   const itv = setInterval(() => {
+  //     void fetchOrderById(orderId);
+  //   }, opts.pollMs);
+  //   return () => clearInterval(itv);
+  // }, [orderId,isReady]);
 
   const order = orderById[orderId] || null;
 

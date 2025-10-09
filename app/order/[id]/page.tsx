@@ -34,7 +34,7 @@ export default function OrderPage() {
     );
   }
 
-  if (error || !order) {
+  if (!order) {
     return (
       <div className="min-h-screen bg-background">
         <MarketplaceHeader />
@@ -179,11 +179,11 @@ export default function OrderPage() {
             currentUserId={me?.id ?? ""}
             currentUserRole={role === "guest" ? "buyer" : role}
           />
-          <EvidenceUpload
+          {/* <EvidenceUpload
             orderId={order.id}
             currentUserId={me?.id ?? ""}
             userRole={role === "guest" ? "buyer" : role}
-          />
+          /> */}
 
           {/* Summary */}
           <Card className="bg-card border-border">

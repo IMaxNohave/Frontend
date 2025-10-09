@@ -6,6 +6,7 @@ import {
   putFileToPresignedUrl,
 } from "@/app/services/uploadItem";
 import { useAuthStore } from "@/stores/authStore";
+import { api } from "@/app/services/api";
 
 type UploadSlipState =
   | "idle"
@@ -14,6 +15,13 @@ type UploadSlipState =
   | "verifying"
   | "done"
   | "error";
+
+type DeposeOk = {
+  success: true;
+  data: { depositId: string; slipRef: string; message: string };
+};
+type DeposeErr = { success: false; message: string };
+type DeposeResp = DeposeOk | DeposeErr;
 
 export function useUploadSlip() {
   const token = useAuthStore.getState().token;
@@ -32,10 +40,10 @@ export function useUploadSlip() {
     setState("presigning");
 
     try {
-      // 1️⃣ ขอ presigned URL
+      // 1) ขอ presigned URL
       const pre = await presignUpload(file, token);
 
-      // 2️⃣ อัปโหลดจริงไป R2
+      // 2) อัปโหลดจริงไป R2
       setState("uploading");
       abortRef.current = new AbortController();
       await putFileToPresignedUrl(
@@ -47,33 +55,35 @@ export function useUploadSlip() {
 
       const imageUrl = pre.imageUrl ?? pre.key;
 
-      // 3️⃣ ส่งไปตรวจสอบ slip ที่ backend
+      // 3) ส่งไปตรวจสอบ slip ที่ backend
       setState("verifying");
-      const r = await fetch(`/api/v1/credits/depose`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ imageUrl }),
-      });
+      const res = await api.post<DeposeResp>(
+        "/v1/credits/depose", // baseURL = /api แล้ว
+        { imageUrl }, // ถ้า backend รับชื่อ field = image ให้เปลี่ยนเป็น { image: imageUrl }
+        { signal: abortRef.current.signal } // รองรับ cancel
+      );
 
-      const j = await r.json();
+      const j = res.data;
 
-      // ⚠️ เคส Error จาก Backend (เช่น Slip already used)
-      if (!r.ok || !j?.success) {
-        setError(j?.message || "ตรวจสอบสลิปไม่สำเร็จ");
+      if (!j.success) {
+        // เช่น { success:false, message:"Slip already used" }
+        setError(j.message || "ตรวจสอบสลิปไม่สำเร็จ");
         setState("error");
-        return { success: false, message: j?.message || "Unknown error" };
+        return { success: false, message: j.message || "Unknown error" };
       }
 
-      // ✅ เคสสำเร็จ
-      setMessage(j.data?.message || "Deposit successful");
+      // success true
+      setMessage(j.data.message || "Deposit successful");
       setState("done");
       return { success: true, ...j.data };
     } catch (e: any) {
-      if (e.name === "AbortError") setError("Upload canceled");
-      else setError(e.message || "Upload failed");
+      // axios cancel: name === 'CanceledError' หรือ code === 'ERR_CANCELED'
+      if (e?.name === "CanceledError" || e?.code === "ERR_CANCELED") {
+        setError("Upload canceled");
+      } else {
+        const backendMsg = e?.response?.data?.message; // ข้อความจาก backend ถ้ามี
+        setError(backendMsg || e?.message || "Upload failed");
+      }
       setState("error");
       throw e;
     } finally {
