@@ -162,14 +162,14 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
           {isLoading ? "Signing in..." : "Login with Roblox"}
         </Button>
 
-        <div className="relative">
+        {/* <div className="relative">
           <Separator className="my-4" />
           <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-sm text-muted-foreground">
             or
           </span>
-        </div>
+        </div> */}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email" className="text-card-foreground">
               Email
@@ -209,9 +209,9 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
           >
             {isLoading ? "Signing in..." : "Sign In"}
           </Button>
-        </form>
+        </form> */}
 
-        <div className="text-center text-sm text-muted-foreground">
+        {/* <div className="text-center text-sm text-muted-foreground">
           Don't have an account?{" "}
           <button
             onClick={onSwitchToSignup}
@@ -219,7 +219,7 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
           >
             Sign up here
           </button>
-        </div>
+        </div> */}
       </CardContent>
     </Card>
   );

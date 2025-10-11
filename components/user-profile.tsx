@@ -34,7 +34,7 @@ export function UserProfile() {
     updateMe,
   } = useUserStore();
 
-  const isReady = useAuthStore((s) => s.isReady);
+  const isReady = useAuthStore((s: any) => s.isReady);
 
   // bootstrap ตอนเข้าเพจ
   useEffect(() => {
@@ -266,7 +266,7 @@ export function UserProfile() {
                   <div className="text-muted-foreground">No items.</div>
                 )}
 
-                {myItems.map((it) => (
+                {myItems.map((it: any) => (
                   <div
                     key={it.id}
                     className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
