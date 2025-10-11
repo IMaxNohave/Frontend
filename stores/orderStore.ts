@@ -39,7 +39,8 @@ type OrdersState = {
   fetchMe: (signal?: AbortSignal) => Promise<void>;
 
   // collections
-  orders: OrderRow[];
+  purchaseOrders: OrderRow[];
+  saleOrders: OrderRow[];
   orderById: Record<string, OrderRow>;
 
   // ui/status
@@ -51,7 +52,8 @@ type OrdersState = {
   setStatusFilter: (s: string | null) => void;
 
   // actions
-  fetchMyOrders: (signal?: AbortSignal) => Promise<void>;
+  fetchMyPurchaseOrders: (signal?: AbortSignal) => Promise<void>;
+  fetchMySaleOrders: (signal?: AbortSignal) => Promise<void>;
   fetchOrderById: (
     id: string,
     signal?: AbortSignal
@@ -81,7 +83,8 @@ export const useOrderStore = create<OrdersState>()((set, get) => ({
   },
 
   /* --- data --- */
-  orders: [],
+  purchaseOrders: [],
+  saleOrders: [],
   orderById: {},
 
   /* --- ui --- */
@@ -93,11 +96,9 @@ export const useOrderStore = create<OrdersState>()((set, get) => ({
   setStatusFilter: (s) => set({ statusFilter: s }),
 
   /* --- actions --- */
-  fetchMyOrders: async (signal) => {
+  fetchMyPurchaseOrders: async (signal) => {
     set({ loading: true, error: null });
     try {
-      // ถ้า api มี interceptor ใส่ Authorization ให้อยู่แล้ว ไม่ต้องทำอะไร
-      // ถ้ายัง ให้ดึง token จาก authStore แล้วแนบ headers เองก่อนสร้าง axios instance
       const res = await api.get<OrdersResp>("/v1/orders/my?limit=50", {
         signal,
       });
@@ -106,7 +107,33 @@ export const useOrderStore = create<OrdersState>()((set, get) => ({
       const list = res.data.data;
       const map: Record<string, OrderRow> = {};
       for (const o of list) map[o.id] = o;
-      set((s) => ({ orders: list, orderById: { ...s.orderById, ...map } }));
+      set((s) => ({
+        purchaseOrders: list, // ✅ ใส่ที่คีย์นี้
+        orderById: { ...s.orderById, ...map },
+      }));
+    } catch (e: any) {
+      if (e?.name !== "AbortError")
+        set({ error: e?.message || "Failed to load orders" });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  fetchMySaleOrders: async (signal) => {
+    set({ loading: true, error: null });
+    try {
+      const res = await api.get<OrdersResp>("/v1/orders/sold?limit=50", {
+        signal,
+      });
+      if (!res.data?.success)
+        throw new Error(res.data?.error || "Failed to load orders");
+      const list = res.data.data;
+      const map: Record<string, OrderRow> = {};
+      for (const o of list) map[o.id] = o;
+      set((s) => ({
+        saleOrders: list, // ✅ ใส่ที่คีย์นี้
+        orderById: { ...s.orderById, ...map },
+      }));
     } catch (e: any) {
       if (e?.name !== "AbortError")
         set({ error: e?.message || "Failed to load orders" });
@@ -141,7 +168,10 @@ export const useOrderStore = create<OrdersState>()((set, get) => ({
           ? { ...s.orderById[id], hasNewMessages: false }
           : s.orderById[id],
       },
-      orders: s.orders.map((o) =>
+      purchaseOrders: s.purchaseOrders.map((o) =>
+        o.id === id ? { ...o, hasNewMessages: false } : o
+      ),
+      saleOrders: s.saleOrders.map((o) =>
         o.id === id ? { ...o, hasNewMessages: false } : o
       ),
     })),
@@ -154,7 +184,12 @@ export const useOrderStore = create<OrdersState>()((set, get) => ({
           ? { ...s.orderById[id], status: next }
           : s.orderById[id],
       },
-      orders: s.orders.map((o) => (o.id === id ? { ...o, status: next } : o)),
+      purchaseOrders: s.purchaseOrders.map((o) =>
+        o.id === id ? { ...o, status: next } : o
+      ),
+      saleOrders: s.saleOrders.map((o) =>
+        o.id === id ? { ...o, status: next } : o
+      ),
     })),
 
   markReady: async (id) => {

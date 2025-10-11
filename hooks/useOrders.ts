@@ -3,75 +3,86 @@
 
 import { useEffect, useMemo } from "react";
 import { useOrdersSlice } from "@/stores/orderStore";
-import { useOrderStore } from "@/stores/orderStore";
 import { useAuthStore } from "@/stores/authStore";
 
 type UseOrdersOpts = {
-  // จะเปิด polling ก็ได้ เช่น ทุก 20s
-  pollMs?: number | null;
+  pollMs?: number | null; // null = ไม่ polling
+  // filter แบบแยกฝั่ง (ถ้าไม่ส่ง = ไม่กรอง)
+  purchaseStatus?: string | null;
+  saleStatus?: string | null;
 };
 
 export function useOrders(opts: UseOrdersOpts = { pollMs: null }) {
   const {
-    orders,
+    purchaseOrders,
+    saleOrders,
     loading,
     error,
-    statusFilter,
-    setStatusFilter,
-    fetchMyOrders,
+    fetchMyPurchaseOrders,
+    fetchMySaleOrders,
+    // helpers
     markMessagesSeen,
     updateOrderStatusLocal,
   } = useOrdersSlice((s) => ({
-    orders: s.orders,
+    purchaseOrders: s.purchaseOrders,
+    saleOrders: s.saleOrders,
     loading: s.loading,
     error: s.error,
-    statusFilter: s.statusFilter,
-    setStatusFilter: s.setStatusFilter,
-    fetchMyOrders: s.fetchMyOrders,
+    fetchMyPurchaseOrders: s.fetchMyPurchaseOrders,
+    fetchMySaleOrders: s.fetchMySaleOrders,
     markMessagesSeen: s.markMessagesSeen,
     updateOrderStatusLocal: s.updateOrderStatusLocal,
   }));
 
   const isReady = useAuthStore((s) => s.isReady);
-  // const initToken = useAuthStore((s) => s.initToken);
 
-  // 2) load orders (on mount + whenever token changes)
+  // โหลดครั้งแรก / เมื่อ auth พร้อม
   useEffect(() => {
     if (!isReady) return;
-    const controller = new AbortController();
-    fetchMyOrders(controller.signal);
+    const ac = new AbortController();
+    fetchMyPurchaseOrders(ac.signal);
+    fetchMySaleOrders(ac.signal);
+    return () => ac.abort();
   }, [isReady]);
 
-  // // 3) optional polling
+  // // Polling ถ้าระบุ pollMs
   // useEffect(() => {
-  //   if (!token || !opts.pollMs || !isReady) return;
-  //   const interval = setInterval(() => {
-  //     const controller = new AbortController();
-  //     fetchMyOrders(controller.signal);
-  //     // ไม่จำเป็นต้อง abort interval fetch ก่อนหน้าถ้าเสร็จเร็ว
-  //   }, opts.pollMs);
-  //   return () => clearInterval(interval);
-  // }, [token, opts.pollMs, isReady]);
+  //   if (!isReady || !opts.pollMs) return;
+  //   const ac = new AbortController();
+  //   const tick = () => {
+  //     fetchMyPurchaseOrders(ac.signal);
+  //     fetchMySaleOrders(ac.signal);
+  //   };
+  //   const id = setInterval(tick, opts.pollMs);
+  //   return () => {
+  //     ac.abort();
+  //     clearInterval(id);
+  //   };
+  // }, [isReady, opts.pollMs, fetchMyPurchaseOrders, fetchMySaleOrders]);
 
-  // 4) client-side filter (ถ้าต้องการ)
-  const visibleOrders = useMemo(() => {
-    if (!statusFilter) return orders;
-    return orders.filter(
-      (o) => o.status.toLowerCase() === statusFilter.toLowerCase()
-    );
-  }, [orders, statusFilter]);
+  // กรองผลลัพธ์ตามสถานะ (ถ้ามี)
+  const filteredPurchases = useMemo(() => {
+    if (!opts.purchaseStatus) return purchaseOrders;
+    const t = opts.purchaseStatus.toLowerCase();
+    return purchaseOrders.filter((o) => o.status.toLowerCase() === t);
+  }, [purchaseOrders, opts.purchaseStatus]);
+
+  const filteredSales = useMemo(() => {
+    if (!opts.saleStatus) return saleOrders;
+    const t = opts.saleStatus.toLowerCase();
+    return saleOrders.filter((o) => o.status.toLowerCase() === t);
+  }, [saleOrders, opts.saleStatus]);
 
   return {
-    // data
-    orders: visibleOrders,
+    // lists
+    purchases: filteredPurchases,
+    sales: filteredSales,
+
+    // ui
     loading,
     error,
 
-    // filters
-    statusFilter,
-    setStatusFilter,
-
-    // actions (optimistic helpers)
+    // helpers
     markMessagesSeen,
     updateOrderStatusLocal,
   };
