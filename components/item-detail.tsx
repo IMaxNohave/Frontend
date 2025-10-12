@@ -57,6 +57,7 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
   const [buying, setBuying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [buyError, setBuyError] = useState<string | null>(null); // State สำหรับ error การซื้อ
 
   // โปรไฟล์ผู้ใช้จาก backend (เชื่อถือได้กว่า localStorage)
   const [me, setMe] = useState<Me | null>(null);
@@ -166,6 +167,8 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
       }
       return;
     }
+    
+    setBuyError(null); // เคลียร์ error เก่าทุกครั้งที่กดซื้อใหม่
 
     try {
       setBuying(true);
@@ -176,14 +179,21 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
       alert("Order created!");
       // router.push(`/order/${res.data.data.orderId}`);
     } catch (e: any) {
-      // ถ้า token หมดอายุ
-      if (e?.response?.status === 401) {
+      setConfirmOpen(false); // ปิด Dialog ทุกครั้งที่เกิด error
+
+      if (e?.response?.status === 402) {
+        // ดักจับ Error 402 (Payment Required)
+        setBuyError("You do not have enough balance to purchase this item.");
+      } else if (e?.response?.status === 401) {
+        // จัดการ Error 401 (Unauthorized)
         if (confirm("Your session has expired. Sign in again?")) {
           router.push("/login");
           return;
         }
+      } else {
+        // Error อื่นๆ ทั่วไป
+        setBuyError(e?.message || "An unexpected error occurred. Please try again.");
       }
-      alert(e?.message || "Failed to buy");
     } finally {
       setBuying(false);
     }
@@ -350,7 +360,7 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
               <p className="text-sm text-muted-foreground">
                 {isOwner
                   ? "You are the owner of this item. You cannot purchase your own listing."
-                  : "This item is not available to buy right now."}
+                                    : "This item is not available to buy right now."}
               </p>
             ) : (
               <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -387,6 +397,10 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+            )}
+             {/* ส่วนแสดง Error Message */}
+            {buyError && (
+                <p className="text-sm text-red-500 text-center pt-2">{buyError}</p>
             )}
           </div>
         </div>
