@@ -1,8 +1,7 @@
 "use client";
 
 import type React from "react";
-
-import { useState, useEffect, useRef } from "react";
+import { useMemo, useRef, useEffect, useCallback, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,16 +9,21 @@ import { Badge } from "@/components/ui/badge";
 import { Send, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-interface ChatMessage {
+import { useOrderChat } from "@/hooks/useOrderChat";
+
+type UiStatus = "sent" | "delivered" | "read";
+type UiType = "message" | "system";
+
+type UiMessage = {
   id: string;
   content: string;
-  senderId: string;
-  senderName: string;
+  senderId: string; // "system" เมื่อเป็น system message
+  senderName: string; // "You" | "System" | "" (หรือจะเติมชื่อคู่สนทนาภายหลัง)
   senderRole: "buyer" | "seller" | "admin";
   timestamp: Date;
-  status: "sent" | "delivered" | "read";
-  type: "message" | "system" | "action";
-}
+  status: UiStatus; // สำหรับ msg ของตัวเอง: delivered/read
+  type: UiType;
+};
 
 interface TradingChatProps {
   orderId: string;
@@ -32,124 +36,74 @@ export function TradingChat({
   currentUserId,
   currentUserRole,
 }: TradingChatProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "1",
-      content: "Hello, Ready to trade?",
-      senderId: "buyer123",
-      senderName: "Customer123",
-      senderRole: "buyer",
-      timestamp: new Date(Date.now() - 300000), // 5 minutes ago
-      status: "read",
-      type: "message",
-    },
-    {
-      id: "2",
-      content: "Yes, join me @BallChon",
-      senderId: "seller456",
-      senderName: "BallChon",
-      senderRole: "seller",
-      timestamp: new Date(Date.now() - 240000), // 4 minutes ago
-      status: "read",
-      type: "message",
-    },
-    {
-      id: "3",
-      content: "Order status updated: Seller is ready",
-      senderId: "system",
-      senderName: "System",
-      senderRole: "admin",
-      timestamp: new Date(Date.now() - 120000), // 2 minutes ago
-      status: "delivered",
-      type: "system",
-    },
-    {
-      id: "4",
-      content: "I'm online now, where should we meet?",
-      senderId: currentUserId,
-      senderName: "You",
-      senderRole: currentUserRole,
-      timestamp: new Date(Date.now() - 60000), // 1 minute ago
-      status: "delivered",
-      type: "message",
-    },
-  ]);
+  const { messages, loading, send, loadMorePrev, markReadIfNeeded } =
+    useOrderChat(orderId, currentUserId, { autoMarkRead: true });
 
+  // ---- local UI states
   const [newMessage, setNewMessage] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isTyping] = useState(false); // ไว้ต่อยอด typing indicator ภายหลัง
+  const listRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  // const scrollToBottom = () => {
-  //   messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  // }
+  // บอกบทบาทของอีกฝั่ง สำหรับโชว์ badge สี
+  const otherRole: "buyer" | "seller" =
+    currentUserRole === "buyer" ? "seller" : "buyer";
 
-  // useEffect(() => {
-  //   scrollToBottom()
-  // }, [messages])
+  // แมปข้อความจาก store → รูปแบบที่ UI เดิมใช้
+  const uiMessages: UiMessage[] = useMemo(() => {
+    return messages.map((m) => {
+      const isSystem = m.kind === "SYSTEM" || m.senderId === null;
+      const mine = m.senderId === currentUserId;
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
+      return {
+        id: m.id,
+        content: m.body,
+        senderId: isSystem ? "system" : m.senderId || "system",
+        senderName: isSystem ? "System" : mine ? "You" : "",
+        senderRole: isSystem ? "admin" : mine ? currentUserRole : otherRole,
+        timestamp: m.createdAt,
+        status: mine
+          ? (m as any).status ?? ("delivered" as UiStatus)
+          : "delivered",
+        type: isSystem ? "system" : "message",
+      };
+    });
+  }, [messages, currentUserId, currentUserRole, otherRole]);
 
-    const message: ChatMessage = {
-      id: Date.now().toString(),
-      content: newMessage,
-      senderId: currentUserId,
-      senderName: "You",
-      senderRole: currentUserRole,
-      timestamp: new Date(),
-      status: "sent",
-      type: "message",
-    };
-
-    setMessages((prev) => [...prev, message]);
+  // ส่งข้อความจริง → ใช้ service ผ่าน hook
+  const handleSendMessage = useCallback(async () => {
+    const text = newMessage.trim();
+    if (!text) return;
+    await send(text);
     setNewMessage("");
+    // ส่งแล้วก็ถือว่าอ่านท้ายห้อง (กรณีอยู่ในห้องเอง)
+    markReadIfNeeded();
+    // เลื่อนลงล่าง
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [newMessage, send, markReadIfNeeded]);
 
-    // TODO: Send to backend
-    // await sendMessageToOrder(orderId, message)
-
-    // Simulate message delivery
-    setTimeout(() => {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === message.id ? { ...msg, status: "delivered" } : msg
-        )
-      );
-    }, 1000);
-
-    if (Math.random() > 0.7) {
-      setTimeout(() => {
-        const otherRole = currentUserRole === "buyer" ? "seller" : "buyer";
-        const responses = [
-          "Got it, I'll be there in 5 minutes",
-          "Let me know when you're ready",
-          "Thanks for the update!",
-          "Sounds good to me",
-        ];
-
-        const responseMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          content: responses[Math.floor(Math.random() * responses.length)],
-          senderId: otherRole + "123",
-          senderName: otherRole === "buyer" ? "Customer123" : "BallChon",
-          senderRole: otherRole,
-          timestamp: new Date(),
-          status: "delivered",
-          type: "message",
-        };
-
-        setMessages((prev) => [...prev, responseMessage]);
-      }, 2000);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      void handleSendMessage();
     }
   };
 
-  const getMessageStatusIcon = (status: ChatMessage["status"]) => {
+  // auto-scroll ลงล่างเมื่อมีข้อความใหม่
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [uiMessages.length]);
+
+  // ยิง markRead ถ้าเลื่อนใกล้ท้าย
+  const onScroll = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+    if (nearBottom) markReadIfNeeded();
+  }, [markReadIfNeeded]);
+
+  // ไอคอนสถานะ (ของข้อความ “ฉัน” เท่านั้น)
+  const getMessageStatusIcon = (status: UiStatus) => {
     switch (status) {
       case "sent":
         return <Clock className="h-3 w-3 text-muted-foreground" />;
@@ -172,19 +126,36 @@ export function TradingChat({
           </Badge>
         </div>
       </CardHeader>
+
       <CardContent className="space-y-4">
-        {/* Messages Container */}
-        <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
-          {messages.map((message) => {
-            const isOwnMessage = message.senderId === currentUserId;
-            const isSystemMessage = message.type === "system";
+        {/* โหลดเพิ่มเติมด้านบน */}
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadMorePrev()}
+            disabled={loading}
+          >
+            Load older messages
+          </Button>
+        </div>
+
+        {/* กล่องข้อความ */}
+        <div
+          ref={listRef}
+          onScroll={onScroll}
+          className="space-y-3 max-h-80 overflow-y-auto pr-2"
+        >
+          {uiMessages.map((msg) => {
+            const isOwnMessage = msg.senderId === currentUserId;
+            const isSystemMessage = msg.type === "system";
 
             if (isSystemMessage) {
               return (
-                <div key={message.id} className="flex justify-center">
+                <div key={msg.id} className="flex justify-center">
                   <div className="bg-muted/50 text-muted-foreground px-3 py-1 rounded-full text-xs flex items-center gap-2">
                     <AlertCircle className="h-3 w-3" />
-                    {message.content}
+                    {msg.content}
                   </div>
                 </div>
               );
@@ -192,7 +163,7 @@ export function TradingChat({
 
             return (
               <div
-                key={message.id}
+                key={msg.id}
                 className={`flex ${
                   isOwnMessage ? "justify-end" : "justify-start"
                 }`}
@@ -203,18 +174,21 @@ export function TradingChat({
                       <Badge
                         variant="secondary"
                         className={`text-xs ${
-                          message.senderRole === "buyer"
+                          msg.senderRole === "buyer"
                             ? "bg-blue-500/20 text-blue-500"
                             : "bg-green-500/20 text-green-500"
                         }`}
                       >
-                        {message.senderRole === "buyer" ? "Buyer" : "Seller"}
+                        {msg.senderRole === "buyer" ? "Buyer" : "Seller"}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {message.senderName}
-                      </span>
+                      {msg.senderName ? (
+                        <span className="text-xs text-muted-foreground">
+                          {msg.senderName}
+                        </span>
+                      ) : null}
                     </div>
                   )}
+
                   <div
                     className={`px-3 py-2 rounded-lg ${
                       isOwnMessage
@@ -222,26 +196,24 @@ export function TradingChat({
                         : "bg-muted text-muted-foreground"
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">
-                      {message.content}
-                    </p>
+                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                     <div className="flex items-center justify-between mt-1 gap-2">
                       <span className="text-xs opacity-70">
-                        {formatDistanceToNow(message.timestamp, {
+                        {formatDistanceToNow(msg.timestamp, {
                           addSuffix: true,
                         })}
                       </span>
-                      {isOwnMessage && getMessageStatusIcon(message.status)}
+                      {isOwnMessage && getMessageStatusIcon(msg.status)}
                     </div>
                   </div>
                 </div>
               </div>
             );
           })}
-          <div ref={messagesEndRef} />
+          <div ref={bottomRef} />
         </div>
 
-        {/* Typing Indicator */}
+        {/* กำลังพิมพ์ (เผื่อเปิดใช้งานในอนาคต) */}
         {isTyping && (
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <div className="flex space-x-1">
@@ -259,12 +231,12 @@ export function TradingChat({
           </div>
         )}
 
-        {/* Message Input */}
+        {/* ส่งข้อความ */}
         <div className="flex gap-2">
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
             placeholder="Type your message..."
             className="flex-1 bg-input border-border"
             maxLength={500}
@@ -279,7 +251,7 @@ export function TradingChat({
           </Button>
         </div>
 
-        {/* Message Guidelines */}
+        {/* ข้อแนะนำ */}
         <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">
           <p className="font-medium mb-1">Chat Guidelines:</p>
           <ul className="space-y-1">

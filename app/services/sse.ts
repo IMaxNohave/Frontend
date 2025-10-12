@@ -14,7 +14,13 @@ export type OrderUpdatePayload = {
   side?: "buyer" | "seller";
 };
 
-export function subscribeSSE(topic: string, handlers: SSEHandlers = {}) {
+type ExtraEvent = [name: string, handler: (data: any) => void];
+
+export function subscribeSSE(
+  topic: string,
+  handlers: SSEHandlers = {},
+  extra: ExtraEvent[] = [] // 👈 เพิ่มพารามิเตอร์
+) {
   const es = new EventSource(
     `${API_PREFIX}/v1/sse?${new URLSearchParams({ topic })}`
   );
@@ -34,7 +40,16 @@ export function subscribeSSE(topic: string, handlers: SSEHandlers = {}) {
       handlers.onOrderUpdate?.(JSON.parse((e as MessageEvent).data));
     } catch {}
   });
-  es.onerror = (err) => handlers.onError?.(err);
 
+  // 👇 รับ custom events เช่น "order.message.new", "order.message.read"
+  for (const [name, h] of extra) {
+    es.addEventListener(name, (e) => {
+      try {
+        h(JSON.parse((e as MessageEvent).data));
+      } catch {}
+    });
+  }
+
+  es.onerror = (err) => handlers.onError?.(err);
   return () => es.close();
 }
