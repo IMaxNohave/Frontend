@@ -104,9 +104,9 @@ export function UserProfile() {
         <CardContent className="p-6">
           {pageLoading ? (
             <div className="text-muted-foreground">Loading profile…</div>
-          ) : meError ? (
-            <div className="text-red-500">Error: {meError}</div>
           ) : (
+            // ) : meError ? (
+            //   <div className="text-red-500">Error: {meError}</div>
             <div className="flex flex-col md:flex-row gap-6">
               {/* Avatar + Badge */}
               <div className="flex flex-col items-center md:items-start">
