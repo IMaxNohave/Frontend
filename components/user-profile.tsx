@@ -259,7 +259,7 @@ export function UserProfile() {
                 {myItemsLoading && (
                   <div className="text-muted-foreground">Loading…</div>
                 )}
-                {myItemsError && (
+                {myItemsError && myItemsError && myItemsError !== "canceled" && (
                   <div className="text-red-500">Error: {myItemsError}</div>
                 )}
                 {!myItemsLoading && !myItemsError && myItems.length === 0 && (
