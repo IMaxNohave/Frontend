@@ -12,6 +12,7 @@ import { use, useEffect } from "react";
 import { useUserStore } from "@/stores/userStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useOrderStore } from "@/stores/orderStore";
+import { useOrderRealtime } from "@/hooks/useOrderRealtime";
 
 const fmtR = (n?: number | string) => `${Number(n ?? 0).toLocaleString()} R$`;
 
@@ -31,6 +32,14 @@ export default function OrderPage() {
     guards,
     actions,
   } = useOrderDetail(orderId, { pollMs: null });
+
+  useEffect(() => {
+    if (order) {
+      console.log("Order ID:", timeline);
+    }
+  }, [order]);
+
+  useOrderRealtime(order?.id);
 
   if (loading) {
     return (

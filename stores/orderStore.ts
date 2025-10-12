@@ -25,7 +25,15 @@ export type OrderRow = {
   item: { id: string; name: string; image: string | null };
   seller: { id: string; name: string | null };
   buyer: { id: string; name: string | null };
-  hasNewMessages?: boolean;
+
+  // ✅ เพิ่มฟิลด์ที่เกี่ยวกับ timeline
+  tradeDeadlineAt?: string | null;
+  sellerAcceptedAt?: string | null;
+  sellerConfirmedAt?: string | null;
+  buyerConfirmedAt?: string | null;
+  cancelledAt?: string | null;
+  cancelledBy?: string | null;
+  disputedAt?: string | null;
 };
 
 /* ===== Types จาก BE (snake_case) ===== */
@@ -64,14 +72,25 @@ const toOrderRow = (o: ApiOrder): OrderRow => ({
   id: o.order_id,
   status: o.order_status,
   createdAt: o.order_created_at,
-  deadlineAt: o.order_deadline_at ?? o.trade_deadline_at ?? null,
+
+  deadlineAt: o.order_deadline_at ?? null, // deadline ของออเดอร์/escrow
+  tradeDeadlineAt: o.trade_deadline_at ?? null, // deadline ช่วงเทรดหลัง accept
+
   quantity: o.order_quantity,
   price: Number(o.price_at_purchase),
   total: Number(o.total),
+
   item: { id: o.item_id, name: o.item_name, image: o.item_image ?? null },
   seller: { id: o.seller_id, name: o.seller_name ?? null },
   buyer: { id: o.buyer_id, name: o.buyer_name ?? null },
-  hasNewMessages: Boolean(o.has_new_messages),
+
+  // ✅ ฟิลด์สำหรับ timeline
+  sellerAcceptedAt: o.seller_accepted_at ?? null,
+  sellerConfirmedAt: o.seller_confirmed_at ?? null,
+  buyerConfirmedAt: o.buyer_confirmed_at ?? null,
+  cancelledAt: o.cancelled_at ?? null,
+  cancelledBy: o.cancelled_by ?? null,
+  disputedAt: o.disputed_at ?? null,
 });
 
 /* ===== State ===== */

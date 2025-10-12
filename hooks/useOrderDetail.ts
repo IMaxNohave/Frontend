@@ -121,38 +121,31 @@ export function useOrderDetail(
 
   const k: StatusKey = normStatus(order?.status) as StatusKey;
 
-  const timeline = useMemo(() => {
-    const paidAt = order?.createdAt;
-    const acceptedAt =
-      (order as any)?.sellerAcceptedAt ??
-      (order as any)?.sellerAcceptAt ??
-      (order as any)?.seller_accepted_at;
-    const sellerConfirmedAt =
-      (order as any)?.sellerConfirmedAt ??
-      (order as any)?.seller_confirmed_at ??
-      null;
-    const buyerConfirmedAt =
-      (order as any)?.buyerConfirmedAt ??
-      (order as any)?.buyer_confirmed_at ??
-      null;
-    const disputedAt = (order as any)?.disputedAt ?? null;
-    const cancelledAt = (order as any)?.cancelledAt ?? null;
+  const fmt = (d?: string | Date | null) =>
+    d ? new Date(d).toLocaleString() : "";
 
-    const anyConfirmed = !!(sellerConfirmedAt || buyerConfirmedAt);
-    const bothConfirmed = !!(sellerConfirmedAt && buyerConfirmedAt);
+  // helper เล็ก ๆ สำหรับหยิบค่าที่มีอยู่ตัวแรก (รองรับหลายคีย์)
+  const pick = (...vals: any[]) =>
+    vals.find((v) => v !== undefined && v !== null);
+
+  const timeline = useMemo(() => {
+    if (!order) return [];
+
+    const k: StatusKey = normStatus(order.status) as StatusKey;
+    const bothConfirmed = !!(order.sellerConfirmedAt && order.buyerConfirmedAt);
 
     const steps = [
       {
-        key: "paid",
+        key: "escrow",
         label: "ชำระเงินแล้ว (Escrow Held)",
         completed: true,
-        time: fmt(paidAt),
+        time: fmt(order.createdAt),
       },
       {
         key: "accepted",
         label: "ผู้ขายยอมรับ (เริ่มเทรด)",
         completed:
-          !!acceptedAt ||
+          !!order.sellerAcceptedAt ||
           [
             "in_trade",
             "await_confirm",
@@ -161,54 +154,89 @@ export function useOrderDetail(
             "expired",
             "cancelled",
           ].includes(k),
-        time: fmt(acceptedAt),
+        time: fmt(order.sellerAcceptedAt),
       },
       {
-        key: "await_confirm",
-        label: "รอยืนยันครบสองฝ่าย",
-        completed:
-          bothConfirmed ||
-          ["completed", "disputed", "expired", "cancelled"].includes(k),
-        time: anyConfirmed
-          ? `${fmt(sellerConfirmedAt)} / ${fmt(buyerConfirmedAt)}`
+        key: "seller_confirmed",
+        label: "ผู้ขายยืนยันส่ง",
+        completed: !!order.sellerConfirmedAt || k === "completed",
+        time: fmt(order.sellerConfirmedAt),
+      },
+      {
+        key: "buyer_confirmed",
+        label: "ผู้ซื้อยืนยันรับ",
+        completed: !!order.buyerConfirmedAt || k === "completed",
+        time: fmt(order.buyerConfirmedAt),
+      },
+      {
+        key: "both",
+        label: "ยืนยันครบสองฝ่าย",
+        completed: bothConfirmed || k === "completed",
+        time: bothConfirmed
+          ? `${fmt(order.sellerConfirmedAt)} / ${fmt(order.buyerConfirmedAt)}`
           : "",
       },
       {
         key: "completed",
-        label: "เสร็จสิ้น/ปล่อยเอสโครว์",
+        label: "เสร็จสิ้น / ปล่อยเอสโครว์",
         completed: k === "completed",
         time:
-          k === "completed" ? fmt(buyerConfirmedAt || sellerConfirmedAt) : "",
+          k === "completed"
+            ? fmt(order.buyerConfirmedAt || order.sellerConfirmedAt)
+            : "",
       },
     ] as const;
 
-    if (k === "disputed")
-      return [
-        ...steps,
-        {
-          key: "disputed",
-          label: "มีข้อพิพาท",
-          completed: true,
-          time: fmt(disputedAt),
-        } as any,
-      ];
-    if (k === "expired")
-      return [
-        ...steps,
-        { key: "expired", label: "หมดเวลา", completed: true, time: "" } as any,
-      ];
-    if (k === "cancelled")
-      return [
-        ...steps,
-        {
-          key: "cancelled",
-          label: "ยกเลิกแล้ว (คืนเงินถ้ามี)",
-          completed: true,
-          time: fmt(cancelledAt),
-        } as any,
-      ];
-    return steps;
-  }, [order, k]);
+    const tail: any[] = [];
+    if (k === "disputed") {
+      tail.push({
+        key: "disputed",
+        label: "มีข้อพิพาท",
+        completed: true,
+        time: fmt(order.disputedAt),
+      });
+    }
+    if (k === "expired") {
+      tail.push({
+        key: "expired",
+        label: "หมดเวลา",
+        completed: true,
+        time: "",
+      });
+    }
+    if (k === "cancelled") {
+      const who =
+        order.cancelledBy === order.seller?.id
+          ? " โดย ผู้ขาย"
+          : order.cancelledBy === order.buyer?.id
+          ? " โดย ผู้ซื้อ"
+          : "";
+      tail.push({
+        key: "cancelled",
+        label: `ยกเลิกแล้ว${who}`,
+        completed: true,
+        time: fmt(order.cancelledAt),
+      });
+    }
+    if (order.tradeDeadlineAt) {
+      tail.push({
+        key: "trade_deadline",
+        label: "Trade deadline",
+        completed: new Date(order.tradeDeadlineAt).getTime() < Date.now(),
+        time: fmt(order.tradeDeadlineAt),
+      });
+    }
+    if (order.deadlineAt) {
+      tail.push({
+        key: "order_deadline",
+        label: "Order escrow deadline",
+        completed: new Date(order.deadlineAt).getTime() < Date.now(),
+        time: fmt(order.deadlineAt),
+      });
+    }
+
+    return [...steps, ...tail];
+  }, [order]);
 
   const statusChip = useMemo(() => chipOf(order?.status), [order]);
 

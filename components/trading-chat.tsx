@@ -1,33 +1,37 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect, useRef } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Send, Clock, CheckCircle2, AlertCircle } from "lucide-react"
-import { formatDistanceToNow } from "date-fns"
+import { useState, useEffect, useRef } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Send, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
 interface ChatMessage {
-  id: string
-  content: string
-  senderId: string
-  senderName: string
-  senderRole: "buyer" | "seller" | "admin"
-  timestamp: Date
-  status: "sent" | "delivered" | "read"
-  type: "message" | "system" | "action"
+  id: string;
+  content: string;
+  senderId: string;
+  senderName: string;
+  senderRole: "buyer" | "seller" | "admin";
+  timestamp: Date;
+  status: "sent" | "delivered" | "read";
+  type: "message" | "system" | "action";
 }
 
 interface TradingChatProps {
-  orderId: string
-  currentUserId: string
-  currentUserRole: "buyer" | "seller"
+  orderId: string;
+  currentUserId: string;
+  currentUserRole: "buyer" | "seller";
 }
 
-export function TradingChat({ orderId, currentUserId, currentUserRole }: TradingChatProps) {
+export function TradingChat({
+  orderId,
+  currentUserId,
+  currentUserRole,
+}: TradingChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "1",
@@ -69,22 +73,22 @@ export function TradingChat({ orderId, currentUserId, currentUserRole }: Trading
       status: "delivered",
       type: "message",
     },
-  ])
+  ]);
 
-  const [newMessage, setNewMessage] = useState("")
-  const [isTyping, setIsTyping] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [newMessage, setNewMessage] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+  // const scrollToBottom = () => {
+  //   messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  // }
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+  // useEffect(() => {
+  //   scrollToBottom()
+  // }, [messages])
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim()) return
+    if (!newMessage.trim()) return;
 
     const message: ChatMessage = {
       id: Date.now().toString(),
@@ -95,28 +99,32 @@ export function TradingChat({ orderId, currentUserId, currentUserRole }: Trading
       timestamp: new Date(),
       status: "sent",
       type: "message",
-    }
+    };
 
-    setMessages((prev) => [...prev, message])
-    setNewMessage("")
+    setMessages((prev) => [...prev, message]);
+    setNewMessage("");
 
     // TODO: Send to backend
     // await sendMessageToOrder(orderId, message)
 
     // Simulate message delivery
     setTimeout(() => {
-      setMessages((prev) => prev.map((msg) => (msg.id === message.id ? { ...msg, status: "delivered" } : msg)))
-    }, 1000)
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === message.id ? { ...msg, status: "delivered" } : msg
+        )
+      );
+    }, 1000);
 
     if (Math.random() > 0.7) {
       setTimeout(() => {
-        const otherRole = currentUserRole === "buyer" ? "seller" : "buyer"
+        const otherRole = currentUserRole === "buyer" ? "seller" : "buyer";
         const responses = [
           "Got it, I'll be there in 5 minutes",
           "Let me know when you're ready",
           "Thanks for the update!",
           "Sounds good to me",
-        ]
+        ];
 
         const responseMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
@@ -127,32 +135,32 @@ export function TradingChat({ orderId, currentUserId, currentUserRole }: Trading
           timestamp: new Date(),
           status: "delivered",
           type: "message",
-        }
+        };
 
-        setMessages((prev) => [...prev, responseMessage])
-      }, 2000)
+        setMessages((prev) => [...prev, responseMessage]);
+      }, 2000);
     }
-  }
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
+      e.preventDefault();
+      handleSendMessage();
     }
-  }
+  };
 
   const getMessageStatusIcon = (status: ChatMessage["status"]) => {
     switch (status) {
       case "sent":
-        return <Clock className="h-3 w-3 text-muted-foreground" />
+        return <Clock className="h-3 w-3 text-muted-foreground" />;
       case "delivered":
-        return <CheckCircle2 className="h-3 w-3 text-blue-500" />
+        return <CheckCircle2 className="h-3 w-3 text-blue-500" />;
       case "read":
-        return <CheckCircle2 className="h-3 w-3 text-green-500" />
+        return <CheckCircle2 className="h-3 w-3 text-green-500" />;
       default:
-        return null
+        return null;
     }
-  }
+  };
 
   return (
     <Card className="bg-card border-border">
@@ -168,8 +176,8 @@ export function TradingChat({ orderId, currentUserId, currentUserRole }: Trading
         {/* Messages Container */}
         <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
           {messages.map((message) => {
-            const isOwnMessage = message.senderId === currentUserId
-            const isSystemMessage = message.type === "system"
+            const isOwnMessage = message.senderId === currentUserId;
+            const isSystemMessage = message.type === "system";
 
             if (isSystemMessage) {
               return (
@@ -179,11 +187,16 @@ export function TradingChat({ orderId, currentUserId, currentUserRole }: Trading
                     {message.content}
                   </div>
                 </div>
-              )
+              );
             }
 
             return (
-              <div key={message.id} className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}>
+              <div
+                key={message.id}
+                className={`flex ${
+                  isOwnMessage ? "justify-end" : "justify-start"
+                }`}
+              >
                 <div className="max-w-[70%] space-y-1">
                   {!isOwnMessage && (
                     <div className="flex items-center gap-2">
@@ -197,25 +210,33 @@ export function TradingChat({ orderId, currentUserId, currentUserRole }: Trading
                       >
                         {message.senderRole === "buyer" ? "Buyer" : "Seller"}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">{message.senderName}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {message.senderName}
+                      </span>
                     </div>
                   )}
                   <div
                     className={`px-3 py-2 rounded-lg ${
-                      isOwnMessage ? "bg-accent text-accent-foreground ml-auto" : "bg-muted text-muted-foreground"
+                      isOwnMessage
+                        ? "bg-accent text-accent-foreground ml-auto"
+                        : "bg-muted text-muted-foreground"
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <p className="text-sm whitespace-pre-wrap">
+                      {message.content}
+                    </p>
                     <div className="flex items-center justify-between mt-1 gap-2">
                       <span className="text-xs opacity-70">
-                        {formatDistanceToNow(message.timestamp, { addSuffix: true })}
+                        {formatDistanceToNow(message.timestamp, {
+                          addSuffix: true,
+                        })}
                       </span>
                       {isOwnMessage && getMessageStatusIcon(message.status)}
                     </div>
                   </div>
                 </div>
               </div>
-            )
+            );
           })}
           <div ref={messagesEndRef} />
         </div>
@@ -265,7 +286,10 @@ export function TradingChat({ orderId, currentUserId, currentUserRole }: Trading
             <li>• Be respectful and professional with all users</li>
             <li>• Share game coordinates and meeting details clearly</li>
             <li>
-              • {currentUserRole === "buyer" ? "Confirm item details before meeting" : "Verify payment before trading"}
+              •{" "}
+              {currentUserRole === "buyer"
+                ? "Confirm item details before meeting"
+                : "Verify payment before trading"}
             </li>
             <li>• Report any suspicious behavior to admin</li>
             <li>• Do not share personal information outside the platform</li>
@@ -273,5 +297,5 @@ export function TradingChat({ orderId, currentUserId, currentUserRole }: Trading
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
