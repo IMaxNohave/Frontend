@@ -1,15 +1,17 @@
-// app/order/[id]/page.tsx
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useMemo } from "react";
 import { MarketplaceHeader } from "@/components/marketplace-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TradingChat } from "@/components/trading-chat";
-import { EvidenceUpload } from "@/components/evidence-upload";
+// import { EvidenceUpload } from "@/components/evidence-upload";
 import { useOrderDetail } from "@/hooks/useOrderDetail";
+import { use, useEffect } from "react";
+import { useUserStore } from "@/stores/userStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useOrderStore } from "@/stores/orderStore";
 
 const fmtR = (n?: number | string) => `${Number(n ?? 0).toLocaleString()} R$`;
 
@@ -18,8 +20,17 @@ export default function OrderPage() {
   const params = useParams();
   const orderId = params.id as string;
 
-  const { me, order, loading, error, role, timeline, statusChip, actions } =
-    useOrderDetail(orderId, { pollMs: null });
+  const {
+    me,
+    order,
+    loading,
+    error,
+    role,
+    timeline,
+    statusChip,
+    guards,
+    actions,
+  } = useOrderDetail(orderId, { pollMs: null });
 
   if (loading) {
     return (
@@ -88,22 +99,24 @@ export default function OrderPage() {
                 <div className="w-20 h-20 bg-muted rounded-lg overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={order.item.image || "/placeholder.svg"}
-                    alt={order.item.name}
+                    src={order?.item?.image ?? "/placeholder.svg"}
+                    alt={order?.item?.name ?? "Item"}
                     className="w-full h-full object-cover"
                   />
                 </div>
+
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-card-foreground">
-                    {order.item.name}
+                    {order?.item?.name ?? "-"}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    จำนวน: {order.quantity}
+                    จำนวน: {order?.quantity ?? 0}
                   </p>
                 </div>
+
                 <div className="text-right">
                   <p className="text-2xl font-bold text-accent">
-                    {fmtR(order.total)}
+                    {fmtR(order?.total ?? 0)}
                   </p>
                   <p className="text-sm text-muted-foreground">รวมสุทธิ</p>
                 </div>
@@ -145,33 +158,52 @@ export default function OrderPage() {
             </CardContent>
           </Card>
 
-          {/* Actions (เฉพาะผู้ขาย) */}
-          {role === "seller" && (
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="text-card-foreground">
-                  การดำเนินการ
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-3">
-                  <Button
-                    onClick={actions.markReady}
-                    className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold"
-                  >
-                    พร้อมขาย
-                  </Button>
-                  <Button
-                    onClick={actions.raiseDispute}
-                    variant="destructive"
-                    className="bg-red-600 hover:bg-red-700"
-                  >
-                    Dispute
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* Actions */}
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-card-foreground">Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-3">
+              {guards.canAccept && (
+                <Button
+                  onClick={actions.accept}
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  Accept & Start Trade
+                </Button>
+              )}
+              {guards.canConfirmSeller && role === "seller" && (
+                <Button
+                  onClick={actions.confirmSeller}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Seller Confirm
+                </Button>
+              )}
+              {guards.canConfirmBuyer && role === "buyer" && (
+                <Button
+                  onClick={actions.confirmBuyer}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Buyer Confirm
+                </Button>
+              )}
+              {guards.canCancel && (
+                <Button onClick={actions.cancel} variant="outline">
+                  Cancel
+                </Button>
+              )}
+              {guards.canDispute && (
+                <Button
+                  onClick={actions.dispute}
+                  variant="destructive"
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Dispute
+                </Button>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Chat / Evidence */}
           <TradingChat

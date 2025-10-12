@@ -12,7 +12,7 @@ export default function OrdersPage() {
   const router = useRouter();
 
   // ได้ลิสต์แยกฝั่งเรียบร้อยจาก hook
-  const { purchases, sales, loading, error } = useOrders();
+  const { purchases, sales, loading, error, acceptOrder } = useOrders();
 
   const hasNoData = purchases.length === 0 && sales.length === 0;
 
@@ -88,8 +88,9 @@ export default function OrdersPage() {
                     <OrderCard
                       key={order.id}
                       order={order}
+                      isSellerView //
+                      onAccept={() => acceptOrder(order.id)}
                       onView={() => router.push(`/order/${order.id}`)}
-                      // onChat={() => router.push(`/order/${order.id}#chat`)}
                     />
                   ))
                 )}

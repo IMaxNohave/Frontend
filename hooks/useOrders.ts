@@ -20,9 +20,9 @@ export function useOrders(opts: UseOrdersOpts = { pollMs: null }) {
     error,
     fetchMyPurchaseOrders,
     fetchMySaleOrders,
-    // helpers
     markMessagesSeen,
     updateOrderStatusLocal,
+    acceptOrder,
   } = useOrdersSlice((s) => ({
     purchaseOrders: s.purchaseOrders,
     saleOrders: s.saleOrders,
@@ -32,6 +32,7 @@ export function useOrders(opts: UseOrdersOpts = { pollMs: null }) {
     fetchMySaleOrders: s.fetchMySaleOrders,
     markMessagesSeen: s.markMessagesSeen,
     updateOrderStatusLocal: s.updateOrderStatusLocal,
+    acceptOrder: s.acceptOrder,
   }));
 
   const isReady = useAuthStore((s) => s.isReady);
@@ -44,21 +45,6 @@ export function useOrders(opts: UseOrdersOpts = { pollMs: null }) {
     fetchMySaleOrders(ac.signal);
     return () => ac.abort();
   }, [isReady]);
-
-  // // Polling ถ้าระบุ pollMs
-  // useEffect(() => {
-  //   if (!isReady || !opts.pollMs) return;
-  //   const ac = new AbortController();
-  //   const tick = () => {
-  //     fetchMyPurchaseOrders(ac.signal);
-  //     fetchMySaleOrders(ac.signal);
-  //   };
-  //   const id = setInterval(tick, opts.pollMs);
-  //   return () => {
-  //     ac.abort();
-  //     clearInterval(id);
-  //   };
-  // }, [isReady, opts.pollMs, fetchMyPurchaseOrders, fetchMySaleOrders]);
 
   // กรองผลลัพธ์ตามสถานะ (ถ้ามี)
   const filteredPurchases = useMemo(() => {
@@ -85,5 +71,6 @@ export function useOrders(opts: UseOrdersOpts = { pollMs: null }) {
     // helpers
     markMessagesSeen,
     updateOrderStatusLocal,
+    acceptOrder,
   };
 }
