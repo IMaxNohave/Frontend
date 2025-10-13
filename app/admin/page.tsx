@@ -146,9 +146,33 @@ export default function AdminPage() {
       return;
     }
 
+    // 🟢 map สถานะจาก FE → ค่า status ของ BE (ตัวใหญ่)
+  const mapStatusToBackend = (s: string) => {
+    switch (s) {
+      case "escrow_held":
+        return "ESCROW_HELD";
+      case "completed":
+        return "COMPLETED";
+      case "disputed":
+        return "DISPUTED";
+      case "expired":
+        return "EXPIRED";
+      case "cancelled":
+        return "CANCELLED";
+      // "in_trade" เป็นกลุ่ม (READY_TO_TRADE/CONFIRMED/…)
+      // ให้เว้นว่างเพื่อกรองที่ฝั่ง FE แทน
+      default:
+        return null;
+    }
+  };
+
     const params = new URLSearchParams();
     if (debouncedSearchTerm) params.append("q", debouncedSearchTerm);
-    if (statusFilter !== "all") params.append("status", statusFilter);
+
+    // ถ้าไม่ใช่กลุ่ม in_trade และไม่ใช่ all → ส่งไปให้ BE กรอง
+    const backendStatus = mapStatusToBackend(statusFilter);
+    if (backendStatus) params.append("status", backendStatus);
+    
     params.append("limit", "50");
 
     try {
@@ -163,14 +187,18 @@ export default function AdminPage() {
 
       const json = await res.json();
       if (json.success) {
-        const formattedOrders = json.data.orders.map((o: any) => ({
-          ...o,
-          createdAt: new Date(o.createdAt),
-          // ✅ บังคับ status ให้เข้ากลุ่มที่เรากำหนด
-          status: normalizeStatus(o.status),
-        }));
+        let formattedOrders = json.data.orders.map((o: any) => ({
+        ...o,
+        createdAt: new Date(o.createdAt),
+        status: normalizeStatus(o.status), // ⬅️ ทำให้เป็นกลุ่มที่ FE ใช้
+      }));
+
+      // 🟡 ถ้าเลือก "in_trade" ซึ่ง BE ไม่มีสถานะนี้ → กรองฝั่ง FE
+      if (statusFilter === "in_trade") {
+        formattedOrders = formattedOrders.filter((o: any) => o.status === "in_trade");
+      }
         setOrders(formattedOrders);
-        setTotalOrders(json.data.total);
+        setTotalOrders(formattedOrders.length); // <-- แก้ตรงนี้
       }
     } catch (error) {
       console.error(error);
@@ -346,19 +374,20 @@ export default function AdminPage() {
                     className="pl-10 bg-input border-border"
                   />
                 </div>
-                {/* <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full md:w-48 bg-input border-border">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full md:w-64 bg-input border-border">
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="escrow_held">Pending</SelectItem>
-                    <SelectItem value="ready_to_trade">Confirmed</SelectItem>
+                    <SelectItem value="escrow_held">Pending (Escrow Held)</SelectItem>
+                    <SelectItem value="in_trade">In Trade</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="disputed">Disputed</SelectItem>
+                    <SelectItem value="expired">Expired</SelectItem>
                     <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
-                </Select> */}
+                </Select>
               </div>
             </CardContent>
           </Card>
