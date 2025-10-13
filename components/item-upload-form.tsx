@@ -91,6 +91,14 @@ export function ItemUploadForm() {
       const imageForDb: string = preJson.data.imageUrl ?? preJson.data.key;
 
       // 3) create item
+      console.log("Creating item with data:", {
+        image: imageForDb,
+        name: formData.name,
+        description: formData.description,
+        price: Number(formData.price),
+        category: formData.categoryId,
+      });
+
       const create = await fetch(`/api/v1/sales`, {
         method: "POST",
         headers: {
@@ -106,10 +114,14 @@ export function ItemUploadForm() {
           // tag: formData.tags.join(","),
         }),
       });
-      if (!create.ok)
+      console.log("Create response status:", create.status);
+      if (!create.ok) {
+        const errorText = await create.text();
+        console.error("Create error response:", errorText);
         throw new Error(
           `create item failed: ${create.status} ${create.statusText}`
         );
+      }
       const creJson = await parseJson(create);
       if (!creJson?.success)
         throw new Error(creJson?.error || "สร้างไอเท็มไม่สำเร็จ");

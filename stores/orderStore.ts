@@ -178,7 +178,7 @@ type OrdersState = {
 
   // mutations
   markReady: (id: string) => Promise<void>;
-  raiseDispute: (id: string) => Promise<void>;
+  // raiseDispute: (id: string) => Promise<void>;
 };
 
 export const useOrderStore = create<OrdersState>()((set, get) => ({
@@ -470,20 +470,20 @@ export const useOrderStore = create<OrdersState>()((set, get) => ({
     }
   },
 
-  raiseDispute: async (id) => {
-    const prev = get().orderById[id];
-    get().updateOrderStatusLocal(id, "DISPUTED");
-    try {
-      const res = await api.post<{ success: boolean; error?: string }>(
-        `/v1/orders/${id}/dispute`
-      );
-      if (!res.data?.success)
-        throw new Error(res.data?.error || "Dispute failed");
-    } catch (e) {
-      if (prev) get().updateOrderStatusLocal(id, prev.status);
-      set({ error: (e as any)?.message || "Failed to dispute" });
-    }
-  },
+  // raiseDispute: async (id) => {
+  //   const prev = get().orderById[id];
+  //   get().updateOrderStatusLocal(id, "DISPUTED");
+  //   try {
+  //     const res = await api.post<{ success: boolean; error?: string }>(
+  //       `/v1/orders/${id}/dispute`
+  //     );
+  //     if (!res.data?.success)
+  //       throw new Error(res.data?.error || "Dispute failed");
+  //   } catch (e) {
+  //     if (prev) get().updateOrderStatusLocal(id, prev.status);
+  //     set({ error: (e as any)?.message || "Failed to dispute" });
+  //   }
+  // },
 }));
 
 export const useOrdersSlice = <T>(selector: (s: OrdersState) => T) =>

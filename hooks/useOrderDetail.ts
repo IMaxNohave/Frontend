@@ -117,7 +117,7 @@ export function useOrderDetail(
   const role: "buyer" | "seller" | "admin" | "guest" = useMemo(() => {
     if (!me) return "guest";
     // ถ้าเป็นแอดมิน ให้สิทธิ์ admin ก่อน
-    if ((me as any).role === "admin") return "admin";
+    if ((me as any).user_type === 2) return "admin";
     if (!order) return "guest";
     if (order.seller?.id === me.id) return "seller";
     if (order.buyer?.id === me.id) return "buyer";
@@ -198,6 +198,7 @@ export function useOrderDetail(
         key: "disputed",
         label: "มีข้อพิพาท",
         completed: true,
+        isDisputed: true,
         time: fmt(order.disputedAt),
       });
     }
@@ -242,15 +243,13 @@ export function useOrderDetail(
         completed: new Date(order.tradeDeadlineAt).getTime() < Date.now(),
         time: fmt(order.tradeDeadlineAt),
       });
-    } else {
-      if (order.deadlineAt) {
-        tail.push({
-          key: "order_deadline",
-          label: "Order escrow deadline",
-          completed: new Date(order.deadlineAt).getTime() < Date.now(),
-          time: fmt(order.deadlineAt),
-        });
-      }
+    } else if (order.deadlineAt) {
+      tail.push({
+        key: "order_deadline",
+        label: "Order escrow deadline",
+        completed: new Date(order.deadlineAt).getTime() < Date.now(),
+        time: fmt(order.deadlineAt),
+      });
     }
 
     return [...steps, ...tail];
@@ -274,9 +273,10 @@ export function useOrderDetail(
   const canCancel = ["ESCROW_HELD", "IN_TRADE", "AWAIT_CONFIRM"].includes(
     order?.status?.toUpperCase?.() || ""
   );
-  const canDispute = ["IN_TRADE", "AWAIT_CONFIRM"].includes(
-    order?.status?.toUpperCase?.() || ""
-  );
+  const canDispute =
+    (role === "buyer" || role === "seller") &&
+    ["IN_TRADE", "AWAIT_CONFIRM"].includes(order.status) &&
+    !order.disputedAt; // หรือ order.status !== "DISPUTED"
 
   const canAdminResolve =
     role === "admin" && order?.status?.toUpperCase() === "DISPUTED";
