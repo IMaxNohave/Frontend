@@ -1,6 +1,6 @@
 "use client"
 
-import { X, ShoppingBag, Upload, History, User, Package, Shield, LogOut } from "lucide-react"
+import { X, ShoppingBag, Upload, History, User, Package, Shield, LogOut, ArrowDownToLine, Wallet } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { useCallback } from "react"
@@ -27,6 +27,7 @@ export function NavigationMenu({ isOpen, onClose }: NavigationMenuProps) {
       ? [{ icon: Package, label: "Manage Orders", color: "text-orange-400", path: "/admin/manage-orders" }]
       : []),
     { icon: Upload, label: "Sell Item", color: "text-yellow-400", path: "/sell" },
+    { icon: ArrowDownToLine, label: "Withdraw", color: "text-emerald-400", path: "/withdraw" },
     { icon: History, label: "History Item", color: "text-purple-400", path: "/history" },
     { icon: User, label: "Profile", color: "text-pink-400", path: "/profile" },
   ]
