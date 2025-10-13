@@ -7,12 +7,18 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useOrders } from "@/hooks/useOrders";
 import { OrderCard } from "@/components/order-card";
+import { useAuthStore } from "@/stores/authStore";
+import { useOrdersListRealtime } from "@/hooks/useOrdersListRealtime";
+import { useOrdersSlice } from "@/stores/orderStore";
+import { useUserStore } from "@/stores/userStore";
 
 export default function OrdersPage() {
   const router = useRouter();
 
   // ได้ลิสต์แยกฝั่งเรียบร้อยจาก hook
-  const { purchases, sales, loading, error, acceptOrder } = useOrders();
+  const { me, purchases, sales, loading, error, acceptOrder } = useOrders();
+
+  useOrdersListRealtime(me?.id);
 
   const hasNoData = purchases.length === 0 && sales.length === 0;
 
@@ -30,7 +36,7 @@ export default function OrdersPage() {
         {loading && <p className="text-muted-foreground">Loading...</p>}
         {/* {error && <p className="text-red-500">{error}</p>} */}
 
-        {hasNoData && (
+        {/* {hasNoData && (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg">No orders found</p>
             <p className="text-muted-foreground text-sm mt-2">
@@ -43,9 +49,9 @@ export default function OrdersPage() {
               Browse Items
             </Button>
           </div>
-        )}
+        )} */}
 
-        {!loading && !hasNoData && (
+        {1 && (
           <Tabs defaultValue="purchases" className="space-y-6">
             <TabsList className="grid w-full grid-cols-2 bg-card">
               <TabsTrigger

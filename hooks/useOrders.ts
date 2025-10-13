@@ -14,6 +14,8 @@ type UseOrdersOpts = {
 
 export function useOrders(opts: UseOrdersOpts = { pollMs: null }) {
   const {
+    me,
+    fetchMe,
     purchaseOrders,
     saleOrders,
     loading,
@@ -24,6 +26,8 @@ export function useOrders(opts: UseOrdersOpts = { pollMs: null }) {
     updateOrderStatusLocal,
     acceptOrder,
   } = useOrdersSlice((s) => ({
+    me: s.me,
+    fetchMe: s.fetchMe,
     purchaseOrders: s.purchaseOrders,
     saleOrders: s.saleOrders,
     loading: s.loading,
@@ -41,6 +45,7 @@ export function useOrders(opts: UseOrdersOpts = { pollMs: null }) {
   useEffect(() => {
     if (!isReady) return;
     const ac = new AbortController();
+    void fetchMe();
     fetchMyPurchaseOrders(ac.signal);
     fetchMySaleOrders(ac.signal);
     return () => ac.abort();
@@ -60,6 +65,8 @@ export function useOrders(opts: UseOrdersOpts = { pollMs: null }) {
   }, [saleOrders, opts.saleStatus]);
 
   return {
+    me,
+    fetchMe,
     // lists
     purchases: filteredPurchases,
     sales: filteredSales,
