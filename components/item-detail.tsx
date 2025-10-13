@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/stores/authStore"; // <--- เพิ่มบรรทัดนี้ถ้ายังไม่มี
 
 // shadcn confirm dialog
 import {
@@ -163,10 +164,20 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
       if (
         confirm("You need to sign in to buy this item. Go to sign in page?")
       ) {
-        router.push("/login");
+        router.push("/");
       }
       return;
     }
+
+    // --- เพิ่มโค้ดส่วนนี้เข้าไป ---
+    // ตรวจสอบ Token โดยตรงจาก Store ก่อนยิง API
+    const token = useAuthStore.getState().token;
+    if (!token) {
+        alert("Your session is invalid or has expired. Please sign in again.");
+        router.push("/");
+        return;
+    }
+    // --- สิ้นสุดส่วนที่เพิ่ม ---
     
     setBuyError(null); // เคลียร์ error เก่าทุกครั้งที่กดซื้อใหม่
 
@@ -187,7 +198,7 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
       } else if (e?.response?.status === 401) {
         // จัดการ Error 401 (Unauthorized)
         if (confirm("Your session has expired. Sign in again?")) {
-          router.push("/login");
+          router.push("/");
           return;
         }
       } else {

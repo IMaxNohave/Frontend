@@ -43,7 +43,7 @@ export default function AuthCallbackPage() {
 
       // ถ้าไม่มี token → กลับหน้า login
       if (!token) {
-        router.replace("/login");
+        router.replace("/");
         return;
       }
 
@@ -56,13 +56,13 @@ export default function AuthCallbackPage() {
 
       // token เสีย/อ่านไม่ได้ → login
       if (!payload) {
-        router.replace("/login");
+        router.replace("/");
         return;
       }
 
       // ถ้า token หมดอายุ → login
       if (payload.exp && Date.now() / 1000 >= payload.exp) {
-        router.replace("/login");
+        router.replace("/");
         return;
       }
 

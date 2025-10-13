@@ -16,13 +16,13 @@ import {
   MessageSquare,
   Package,
   DollarSign,
-  Loader2, // Import ไอคอน Loading
+  Loader2,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { MarketplaceHeader } from "@/components/marketplace-header"
 import { useAuthStore } from "@/stores/authStore";
 import { useUserStore } from "@/stores/userStore";
-import { useDebounce } from "use-debounce"; // แนะนำให้ติดตั้ง: npm install use-debounce
+import { useDebounce } from "use-debounce";
 
 interface Order {
   id: string
@@ -30,7 +30,6 @@ interface Order {
   price: string
   buyer: string
   seller: string
-  // ทำให้ยืดหยุ่นขึ้นเผื่อมี status เพิ่มในอนาคต
   status: "pending" | "confirmed" | "completed" | "disputed" | "cancelled" | string
   createdAt: Date
   description: string
@@ -54,12 +53,11 @@ function decodeJwt<T = any>(token: string): T | null {
 }
 
 export default function AdminPage() {
-  // States สำหรับจัดการข้อมูลและ UI
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [totalOrders, setTotalOrders] = useState(0)
   const [searchTerm, setSearchTerm] = useState("")
-  const [debouncedSearchTerm] = useDebounce(searchTerm, 500); // หน่วงเวลา 500ms หลังพิมพ์เสร็จ
+  const [debouncedSearchTerm] = useDebounce(searchTerm, 500);
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [guardDone, setGuardDone] = useState(false);
   const router = useRouter()
@@ -75,13 +73,13 @@ export default function AdminPage() {
         token = localStorage.getItem("token");
       }
       if (!token) {
-        router.replace("/login");
+        router.replace("/");
         return;
       }
       type Payload = { user_type?: number; exp?: number };
       const payload = decodeJwt<Payload>(token);
       if (!payload || (payload.exp && Date.now() / 1000 >= payload.exp)) {
-        router.replace("/login");
+        router.replace("/");
         return;
       }
       const isAdminFromJwt = Number(payload.user_type) === 2;
@@ -110,7 +108,6 @@ export default function AdminPage() {
   }, [router]);
 
 
-  // ฟังก์ชันสำหรับดึงข้อมูล Orders จาก API
   const fetchOrders = useCallback(async () => {
     if (!guardDone) return;
     setIsLoading(true);
@@ -118,14 +115,14 @@ export default function AdminPage() {
     const currentToken = useAuthStore.getState().token;
     if (!currentToken) {
       setIsLoading(false);
-      router.replace("/login");
+      router.replace("/");
       return;
     }
 
     const params = new URLSearchParams();
     if (debouncedSearchTerm) params.append("q", debouncedSearchTerm);
     if (statusFilter !== "all") params.append("status", statusFilter);
-    params.append("limit", "50"); // หรือจะทำ pagination ก็ได้
+    params.append("limit", "50");
 
     try {
       const res = await fetch(`/api/v1/admin/orders?${params.toString()}`, {
@@ -133,7 +130,7 @@ export default function AdminPage() {
       });
 
       if (!res.ok) {
-        if (res.status === 401 || res.status === 403) router.replace("/login");
+        if (res.status === 401 || res.status === 403) router.replace("/");
         throw new Error(`Failed to fetch orders: ${res.statusText}`);
       }
 
@@ -153,7 +150,6 @@ export default function AdminPage() {
     }
   }, [guardDone, debouncedSearchTerm, statusFilter, router]);
 
-  // เรียกใช้ fetchOrders เมื่อ guard ผ่าน หรือเมื่อ filter/search เปลี่ยน
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
@@ -169,7 +165,6 @@ export default function AdminPage() {
   }
 
   const getStatusColor = (status: Order["status"]) => {
-    // ปรับ status ให้รองรับค่าจาก DB (escrow_held, ready_to_trade)
     switch (status) {
       case "pending":
       case "escrow_held":
@@ -207,7 +202,6 @@ export default function AdminPage() {
     }
   };
   
-  // สร้างฟังก์ชันคำนวณ Stats จาก state `orders`
   const calculateStats = (status: string | string[]) => {
     const statuses = Array.isArray(status) ? status : [status];
     return orders.filter(o => statuses.includes(o.status)).length;
@@ -223,7 +217,6 @@ export default function AdminPage() {
               <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
               <p className="text-muted-foreground">Monitor all trading activities and manage orders</p>
             </div>
-            {/* Logout button can be improved later to use auth store */}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -236,7 +229,6 @@ export default function AdminPage() {
                 </div>
               </CardContent>
             </Card>
-            {/* Other stat cards */}
             <Card className="bg-card border-border">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="p-2 bg-blue-500/20 rounded-lg"><Package className="h-5 w-5 text-blue-500" /></div>
@@ -318,7 +310,6 @@ export default function AdminPage() {
                 <div className="space-y-4">
                   {orders.map((order) => (
                     <div key={order.id} className="border border-border rounded-lg p-4 hover:bg-muted/30 transition-colors">
-                      {/* ... JSX for rendering each order row (same as your original code) ... */}
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-2">
@@ -328,7 +319,13 @@ export default function AdminPage() {
                           <Badge className={getStatusColor(order.status)}>{order.status.replace('_', ' ').toUpperCase()}</Badge>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline" className="border-border hover:bg-accent bg-transparent">
+                          {/* --- MODIFIED --- เพิ่ม onClick event ที่นี่ */}
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="border-border hover:bg-accent bg-transparent"
+                            onClick={() => router.push(`/order/${order.id}`)}
+                          >
                             <Eye className="h-4 w-4 mr-2" /> View Details
                           </Button>
                           {order.status === "disputed" && (
@@ -339,29 +336,29 @@ export default function AdminPage() {
                         </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Item</p>
-                            <p className="font-medium text-card-foreground">{order.itemName}</p>
-                            <p className="text-sm text-accent">{order.price}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Parties</p>
-                            <p className="text-sm text-card-foreground">
-                              <span className="text-blue-500">Buyer:</span> {order.buyer}
-                            </p>
-                            <p className="text-sm text-card-foreground">
-                              <span className="text-green-500">Seller:</span> {order.seller}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Created</p>
-                            <p className="text-sm text-card-foreground">{order.createdAt.toLocaleDateString()}</p>
-                            <p className="text-sm text-card-foreground">{order.createdAt.toLocaleTimeString()}</p>
-                          </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Item</p>
+                          <p className="font-medium text-card-foreground">{order.itemName}</p>
+                          <p className="text-sm text-accent">{order.price}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Parties</p>
+                          <p className="text-sm text-card-foreground">
+                            <span className="text-blue-500">Buyer:</span> {order.buyer}
+                          </p>
+                          <p className="text-sm text-card-foreground">
+                            <span className="text-green-500">Seller:</span> {order.seller}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Created</p>
+                          <p className="text-sm text-card-foreground">{order.createdAt.toLocaleDateString()}</p>
+                          <p className="text-sm text-card-foreground">{order.createdAt.toLocaleTimeString()}</p>
+                        </div>
                       </div>
                       <div className="mb-3">
-                          <p className="text-sm text-muted-foreground mb-1">Description</p>
-                          <p className="text-sm text-card-foreground">{order.description}</p>
+                        <p className="text-sm text-muted-foreground mb-1">Description</p>
+                        <p className="text-sm text-card-foreground">{order.description}</p>
                       </div>
                     </div>
                   ))}
