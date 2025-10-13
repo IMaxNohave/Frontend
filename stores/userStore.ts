@@ -11,7 +11,8 @@ export type MeDTO = {
   email: string;
   image: string | null;
   createdAt: string;
-  user_type: number; // ✨ 1=user, 2=admin
+  user_type?: number; // 1=user, 2=admin
+
 };
 
 export type MyItem = {
