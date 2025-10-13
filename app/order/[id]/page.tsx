@@ -35,7 +35,7 @@ export default function OrderPage() {
 
   useEffect(() => {
     if (order) {
-      console.log("Order ID:", timeline);
+      console.log("Order ID:", order);
     }
   }, [order]);
 
@@ -173,7 +173,7 @@ export default function OrderPage() {
               <CardTitle className="text-card-foreground">Actions</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-3">
-              {guards.canAccept && (
+              {role !== "admin" && guards.canAccept && (
                 <Button
                   onClick={actions.accept}
                   className="bg-indigo-600 hover:bg-indigo-700"
@@ -181,23 +181,27 @@ export default function OrderPage() {
                   Accept & Start Trade
                 </Button>
               )}
-              {guards.canConfirmSeller && role === "seller" && (
-                <Button
-                  onClick={actions.confirmSeller}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  Seller Confirm
-                </Button>
-              )}
-              {guards.canConfirmBuyer && role === "buyer" && (
-                <Button
-                  onClick={actions.confirmBuyer}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  Buyer Confirm
-                </Button>
-              )}
-              {guards.canCancel && (
+              {role !== "admin" &&
+                guards.canConfirmSeller &&
+                role === "seller" && (
+                  <Button
+                    onClick={actions.confirmSeller}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    Seller Confirm
+                  </Button>
+                )}
+              {role !== "admin" &&
+                guards.canConfirmBuyer &&
+                role === "buyer" && (
+                  <Button
+                    onClick={actions.confirmBuyer}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    Buyer Confirm
+                  </Button>
+                )}
+              {role !== "admin" && guards.canCancel && (
                 <Button onClick={actions.cancel} variant="outline">
                   Cancel
                 </Button>
@@ -211,6 +215,33 @@ export default function OrderPage() {
                   Dispute
                 </Button>
               )}
+              +{" "}
+              {/* {role === "admin" && (
+                <>
+                  <Button
+                    onClick={async () => {
+                      await fetch(`/v1/orders/${order.id}/admin/join`, {
+                        method: "POST",
+                        credentials: "include",
+                      });
+                    }}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    Join as Admin
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      await fetch(`/v1/orders/${order.id}/admin/leave`, {
+                        method: "POST",
+                        credentials: "include",
+                      });
+                    }}
+                    variant="outline"
+                  >
+                    Leave
+                  </Button>
+                </>
+              )} */}
             </CardContent>
           </Card>
 
@@ -218,7 +249,7 @@ export default function OrderPage() {
           <TradingChat
             orderId={order.id}
             currentUserId={me?.id ?? ""}
-            currentUserRole={role === "guest" ? "buyer" : role}
+            currentUserRole={role as "buyer" | "seller" | "admin"} // "buyer" | "seller" | "admin" | "guest"
           />
           {/* <EvidenceUpload
             orderId={order.id}
