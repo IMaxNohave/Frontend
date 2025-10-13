@@ -115,7 +115,7 @@ export function useOrderDetail(
   const role: "buyer" | "seller" | "admin" | "guest" = useMemo(() => {
     if (!me) return "guest";
     // ถ้าเป็นแอดมิน ให้สิทธิ์ admin ก่อน
-    if ((me as any).role === "admin") return "admin";
+    if ((me as any).user_type === 2) return "admin";
     if (!order) return "guest";
     if (order.seller?.id === me.id) return "seller";
     if (order.buyer?.id === me.id) return "buyer";
@@ -196,6 +196,7 @@ export function useOrderDetail(
         key: "disputed",
         label: "มีข้อพิพาท",
         completed: true,
+        isDisputed: true,
         time: fmt(order.disputedAt),
       });
     }

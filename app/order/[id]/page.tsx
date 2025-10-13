@@ -6,12 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TradingChat } from "@/components/trading-chat";
-// import { EvidenceUpload } from "@/components/evidence-upload";
+import { EvidenceUpload } from "@/components/evidence-upload";
+import { AdminEvidenceViewer } from "@/components/admin-evidence-viewer";
+import { AlertCircle } from "lucide-react";
 import { useOrderDetail } from "@/hooks/useOrderDetail";
 import { use, useEffect } from "react";
 import { useUserStore } from "@/stores/userStore";
 import { useAuthStore } from "@/stores/authStore";
-import { useOrderStore } from "@/stores/orderStore";
+import { useOrderStore, normStatus } from "@/stores/orderStore";
 import { useOrderRealtime } from "@/hooks/useOrderRealtime";
 
 const fmtR = (n?: number | string) => `${Number(n ?? 0).toLocaleString()} R$`;
@@ -141,15 +143,21 @@ export default function OrderPage() {
             <CardContent className="space-y-4">
               {timeline.map((step) => (
                 <div key={step.key} className="flex items-center gap-3">
-                  <div
-                    className={`w-3 h-3 rounded-full ${
-                      step.completed ? "bg-green-500" : "bg-muted"
-                    }`}
-                  />
+                  {step.isDisputed ? (
+                    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                  ) : (
+                    <div
+                      className={`w-3 h-3 rounded-full ${
+                        step.completed ? "bg-green-500" : "bg-muted"
+                      }`}
+                    />
+                  )}
                   <div className="flex-1">
                     <p
                       className={`font-medium ${
-                        step.completed
+                        step.isDisputed
+                          ? "text-red-500"
+                          : step.completed
                           ? "text-green-500"
                           : "text-muted-foreground"
                       }`}
@@ -251,11 +259,27 @@ export default function OrderPage() {
             currentUserId={me?.id ?? ""}
             currentUserRole={role as "buyer" | "seller" | "admin"} // "buyer" | "seller" | "admin" | "guest"
           />
-          {/* <EvidenceUpload
-            orderId={order.id}
-            currentUserId={me?.id ?? ""}
-            userRole={role === "guest" ? "buyer" : role}
-          /> */}
+          
+          {/* Evidence Upload/View */}
+          {role === "admin" ? (
+            // Admin เห็นหลักฐานทั้งสองฝ่าย
+            <AdminEvidenceViewer
+              orderId={order.id}
+              buyerId={order.buyer?.id ?? ""}
+              sellerId={order.seller?.id ?? ""}
+              buyerName={order.buyer?.name ?? "Buyer"}
+              sellerName={order.seller?.name ?? "Seller"}
+              orderStatus={normStatus(order.status)}
+            />
+          ) : (
+            // User อัพโหลดหลักฐานของตัวเอง
+            <EvidenceUpload
+              orderId={order.id}
+              currentUserId={me?.id ?? ""}
+              userRole={role === "guest" ? "buyer" : (role as "buyer" | "seller")}
+              orderStatus={normStatus(order.status)}
+            />
+          )}
 
           {/* Summary */}
           <Card className="bg-card border-border">
