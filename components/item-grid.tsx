@@ -5,18 +5,21 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
+import { useUserStore } from "@/stores/userStore";
+import { api } from "@/app/services/api";
 
 type Item = {
   id: string;
   name: string;
   seller_name: string | null;
+  sellerId: string | null; // ⬅️ เพิ่ม
   detail: string | null;
   image: string | null;
   price: number;
   status: number;
   category: { id: string | null; name: string | null; detail: string | null };
-  expiresAt?: string | null; // ⬅️ ต้องมี
+  expiresAt?: string | null;
 };
 
 interface ItemGridProps {
@@ -24,8 +27,10 @@ interface ItemGridProps {
   loading: boolean;
   err: string | null;
   selectedCategoryName: string | null;
-  onDeleteItem?: (id: string) => void;
+  onDeleteItem?: (id: string) => void; // ถ้าพ่อแม่อยากจัดการเอง
 }
+
+type MeResp = { success: boolean; data?: { id: string; user_type?: number } };
 
 function formatRemain(ms: number) {
   if (ms <= 0) return "Expired";
@@ -49,18 +54,43 @@ export function ItemGrid({
 }: ItemGridProps) {
   const router = useRouter();
 
-  const isAdmin =
-    typeof window !== "undefined" &&
-    localStorage.getItem("userEmail") === "admin@gmail.com";
+  // ดึงข้อมูลผู้ใช้ปัจจุบันแบบง่าย (หรือเปลี่ยนไปใช้ store/auth ของคุณ)
+  const user = useUserStore();
 
-  const handleDelete = (item: Item, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!onDeleteItem) return;
-    if (!confirm(`Delete "${item.name}" ?`)) return;
-    onDeleteItem(item.id);
+  const myId = user?.me?.id ?? null;
+  const isAdmin = (user?.me?.user_type ?? 1) === 2;
+
+  useEffect(() => {
+    console.log("Current user:", user);
+  }, [user]);
+
+  // เรียก API ลบแบบ fallback ถ้า parent ไม่ได้ส่ง onDeleteItem เข้ามา
+  const callDeleteApi = async (id: string) => {
+    const res = await api.delete(`/v1/items/${id}`);
+    if (!res.data?.success) {
+      throw new Error(res.data?.error || "Delete failed");
+    }
   };
 
-  // ✅ มี interval เดียวทั้งกริด
+  const handleDelete = async (item: Item, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Delete "${item.name}" ?`)) return;
+
+    try {
+      // ถ้า parent ส่ง onDeleteItem มาก็เรียก parent ให้จัดการ refresh เอง
+      if (onDeleteItem) {
+        await callDeleteApi(item.id);
+        onDeleteItem(item.id);
+      } else {
+        // fallback: ลบผ่าน API อย่างเดียว (การ refresh list ให้ component แม่จัดการ)
+        await callDeleteApi(item.id);
+      }
+    } catch (e: any) {
+      alert(e?.response?.data?.error || e?.message || "Failed to delete item");
+    }
+  };
+
+  // timer เหมือนเดิม…
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -83,6 +113,8 @@ export function ItemGrid({
           const remainText = remainMs !== null ? formatRemain(remainMs) : null;
           const isExpired = remainMs !== null && remainMs <= 0;
 
+          const canDelete = !!myId && (isAdmin || item.sellerId === myId);
+          // console.log({ canDelete, isAdmin, myId, itemSeller: item.sellerId });
           return (
             <Card
               key={item.id}
@@ -91,13 +123,11 @@ export function ItemGrid({
             >
               <CardContent className="p-4">
                 <div className="aspect-square bg-muted rounded-lg mb-3 overflow-hidden relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={item.image || "/placeholder.svg"}
                     alt={item.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                   />
-                  {/* แปะ badge มุมรูปถ้ามีหมดอายุ */}
                   {item.expiresAt && (
                     <div className="absolute top-2 right-2">
                       <Badge
@@ -147,12 +177,15 @@ export function ItemGrid({
                       >
                         View Item
                       </Button>
-                      {isAdmin && (
+
+                      {/* ⬇️ แสดงปุ่มลบเฉพาะ owner หรือ admin */}
+                      {canDelete && (
                         <Button
                           size="sm"
                           variant="outline"
                           className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white bg-transparent"
                           onClick={(e) => handleDelete(item, e)}
+                          title="Soft delete this listing"
                         >
                           Delete
                         </Button>
@@ -160,7 +193,6 @@ export function ItemGrid({
                     </div>
                   </div>
 
-                  {/* แสดงอีกบรรทัดใต้ราคา (เผื่ออยากเด่นชัด) */}
                   {item.expiresAt && (
                     <div
                       className={

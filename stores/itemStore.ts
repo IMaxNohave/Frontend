@@ -11,6 +11,7 @@ export type Item = {
   id: string;
   name: string;
   seller_name: string | null;
+  sellerId: string | null;
   detail: string | null;
   image: string | null;
   price: number;
