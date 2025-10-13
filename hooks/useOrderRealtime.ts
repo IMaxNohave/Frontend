@@ -4,9 +4,11 @@
 import { useEffect, useRef } from "react";
 import { subscribeSSE } from "@/app/services/sse";
 import { useOrderStore } from "@/stores/orderStore";
+import { useUserStore } from "@/stores/userStore";
 
 export function useOrderRealtime(orderId?: string) {
   const fetchOrderById = useOrderStore((s) => s.fetchOrderById);
+  const fetchWallet = useUserStore((s) => s.fetchWallet);
   const connectedRef = useRef(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -19,6 +21,7 @@ export function useOrderRealtime(orderId?: string) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         fetchOrderById(orderId).catch(() => {});
+        fetchWallet().catch(() => {});
       }, 200);
     };
 

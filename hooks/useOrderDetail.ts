@@ -183,7 +183,7 @@ export function useOrderDetail(
       },
       {
         key: "completed",
-        label: "เสร็จสิ้น / ปล่อยเอสโครว์",
+        label: "เสร็จสิ้น / ปล่อย Escrow",
         completed: k === "completed",
         time:
           k === "completed"
