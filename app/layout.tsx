@@ -12,6 +12,12 @@ export const metadata: Metadata = {
   title: "Ro Trade",
   description: "Created with IMaxNohave",
   generator: "IMaxNohave",
+  icons: {
+    icon: [
+      { url: '/favicon.png', type: 'image/png' },
+      // { url: '/icon-dark.png', type: 'image/png', media: '(prefers-color-scheme: dark)' }, // สำหรับ Dark Mode
+    ], // path ไปยังไฟล์ในโฟลเดอร์ public
+  },
 };
 
 export default function RootLayout({

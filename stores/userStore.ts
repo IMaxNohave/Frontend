@@ -11,6 +11,7 @@ export type MeDTO = {
   email: string;
   image: string | null;
   createdAt: string;
+  user_type: number; // ✨ 1=user, 2=admin
 };
 
 export type MyItem = {
@@ -57,21 +58,29 @@ type UserState = {
   fetchWallet: (signal?: AbortSignal) => Promise<void>;
   fetchMyItems: (signal?: AbortSignal) => Promise<void>;
   updateMe: (p: { name: string; email: string }) => Promise<void>;
+  // ✨ helper ใหม่
+  setFromMe: (me: MeDTO) => void;  // ✨ add
 };
 
 export const useUserStore = create<UserState>()((set, get) => ({
   // --- flags ---
-  isAdmin:
-    typeof window !== "undefined"
-      ? localStorage.getItem("isAdmin") === "true" ||
-        localStorage.getItem("userEmail") === "admin@gmail.com"
-      : false,
+  isAdmin: false, // เริ่มต้น false
+
   setAdmin: (v) => {
+    // ถ้าอยากเก็บ mock/manual override ก็ยังเก็บ localStorage ได้
     if (typeof window !== "undefined") {
       if (v) localStorage.setItem("isAdmin", "true");
       else localStorage.removeItem("isAdmin");
     }
     set({ isAdmin: v });
+  },
+
+  // helper ใหม่: ตั้งค่าจากข้อมูล me ที่มาจาก backend
+  setFromMe: (me: MeDTO) => {
+    set({
+      me,
+      isAdmin: Number(me.user_type) === 2,
+    });
   },
 
   // --- me ---
@@ -91,32 +100,16 @@ export const useUserStore = create<UserState>()((set, get) => ({
 
   // --- actions ---
   bootstrap: async () => {
-    // 1) token
+    // ถ้า login ด้วย cookie httpOnly + reverse proxy แล้ว
+    // ส่วนใหญ่ไม่จำเป็นต้อง initToken อะไรเพิ่มสำหรับ OAuth
     const initToken = useAuthStore.getState().initToken;
     await initToken();
 
-    // 2) ถ้าเป็น admin mock ก็หยุดที่นี่ (ไม่เรียก API จริง)
-    if (get().isAdmin) {
-      set({
-        me: {
-          id: "admin",
-          name: "Admin",
-          email: "admin@gmail.com",
-          image: null,
-          createdAt: new Date().toISOString(),
-        },
-        wallet: { balance: "∞", held: "0", available: "∞" },
-        myItems: [],
-      });
-      return;
-    }
-
-    // 3) โหลด me + wallet พร้อมกัน
+    // โหลด me + wallet พร้อมกัน
     await Promise.allSettled([get().fetchMe(), get().fetchWallet()]);
   },
 
   fetchMe: async (signal) => {
-    if (get().isAdmin) return;
     set({ meLoading: true, meError: null });
     try {
       const r = await api.get<{ success: boolean; data: MeDTO }>(
@@ -124,7 +117,8 @@ export const useUserStore = create<UserState>()((set, get) => ({
         { signal }
       );
       if (!r.data?.success) throw new Error("Load me failed");
-      set({ me: r.data.data });
+      // ตั้งค่าจาก server (จะเซ็ต isAdmin ให้อัตโนมัติ)
+      get().setFromMe(r.data.data);
     } catch (e: any) {
       if (e?.name !== "AbortError")
         set({ meError: e?.message || "Load me failed" });
