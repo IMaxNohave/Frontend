@@ -112,8 +112,11 @@ export function useOrderDetail(
 
   const order = orderById[orderId] || null;
 
-  const role: "buyer" | "seller" | "guest" = useMemo(() => {
-    if (!order || !me) return "guest";
+  const role: "buyer" | "seller" | "admin" | "guest" = useMemo(() => {
+    if (!me) return "guest";
+    // ถ้าเป็นแอดมิน ให้สิทธิ์ admin ก่อน
+    if ((me as any).role === "admin") return "admin";
+    if (!order) return "guest";
     if (order.seller?.id === me.id) return "seller";
     if (order.buyer?.id === me.id) return "buyer";
     return "guest";

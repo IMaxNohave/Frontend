@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useMemo, useRef, useEffect, useCallback, useState } from "react";
+import { useMemo, useRef, useEffect, useCallback, useState, use } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,7 @@ type UiMessage = {
 interface TradingChatProps {
   orderId: string;
   currentUserId: string;
-  currentUserRole: "buyer" | "seller";
+  currentUserRole: "buyer" | "seller" | "admin"; // guest จะไม่เห็นห้องแชท
 }
 
 export function TradingChat({
@@ -36,6 +36,12 @@ export function TradingChat({
   currentUserId,
   currentUserRole,
 }: TradingChatProps) {
+  useEffect(() => {
+    console.log("Rendering TradingChat for orderId:", orderId);
+    console.log("Current User ID:", currentUserId);
+    console.log("Current User Role:", currentUserRole);
+  }, [orderId]);
+
   const { messages, loading, send, loadMorePrev, markReadIfNeeded } =
     useOrderChat(orderId, currentUserId, { autoMarkRead: true });
 
@@ -46,8 +52,7 @@ export function TradingChat({
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // บอกบทบาทของอีกฝั่ง สำหรับโชว์ badge สี
-  const otherRole: "buyer" | "seller" =
-    currentUserRole === "buyer" ? "seller" : "buyer";
+  const otherRole = currentUserRole;
 
   // แมปข้อความจาก store → รูปแบบที่ UI เดิมใช้
   const uiMessages: UiMessage[] = useMemo(() => {
@@ -55,12 +60,22 @@ export function TradingChat({
       const isSystem = m.kind === "SYSTEM" || m.senderId === null;
       const mine = m.senderId === currentUserId;
 
+      // ถ้ามี m.role / m.user_name จาก BE ใช้ก่อน
+      const beRole = (m as any).role as
+        | "buyer"
+        | "seller"
+        | "admin"
+        | undefined;
+      const beName = (m as any).user_name as string | undefined;
+
       return {
         id: m.id,
         content: m.body,
         senderId: isSystem ? "system" : m.senderId || "system",
-        senderName: isSystem ? "System" : mine ? "You" : "",
-        senderRole: isSystem ? "admin" : mine ? currentUserRole : otherRole,
+        senderName: isSystem ? "System" : beName ?? (mine ? "You" : ""),
+        senderRole: isSystem
+          ? "admin"
+          : beRole ?? (mine ? currentUserRole : otherRole),
         timestamp: m.createdAt,
         status: mine
           ? (m as any).status ?? ("delivered" as UiStatus)
@@ -121,8 +136,8 @@ export function TradingChat({
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-card-foreground">In-Order Chat</CardTitle>
-          <Badge variant="outline" className="text-xs">
-            {currentUserRole === "buyer" ? "Buyer" : "Seller"}
+          <Badge variant="outline" className="text-xs capitalize">
+            {currentUserRole}
           </Badge>
         </div>
       </CardHeader>
@@ -176,10 +191,13 @@ export function TradingChat({
                         className={`text-xs ${
                           msg.senderRole === "buyer"
                             ? "bg-blue-500/20 text-blue-500"
-                            : "bg-green-500/20 text-green-500"
+                            : msg.senderRole === "seller"
+                            ? "bg-green-500/20 text-green-500"
+                            : "bg-purple-500/20 text-purple-600" /* admin */
                         }`}
                       >
-                        {msg.senderRole === "buyer" ? "Buyer" : "Seller"}
+                        {msg.senderRole.charAt(0).toUpperCase() +
+                          msg.senderRole.slice(1)}
                       </Badge>
                       {msg.senderName ? (
                         <span className="text-xs text-muted-foreground">

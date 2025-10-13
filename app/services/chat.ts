@@ -9,6 +9,8 @@ export type ApiMessage = {
   kind: "TEXT" | "SYSTEM" | "IMAGE" | "VIDEO";
   body?: string | null;
   created_at: string; // ISO
+  role?: "buyer" | "seller" | "admin";
+  user_name?: string | null;
 };
 
 type ListResp = {

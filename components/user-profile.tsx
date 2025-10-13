@@ -34,7 +34,7 @@ export function UserProfile() {
     updateMe,
   } = useUserStore();
 
-  const isReady = useAuthStore((s) => s.isReady);
+  const isReady = useAuthStore((s: any) => s.isReady);
 
   // bootstrap ตอนเข้าเพจ
   useEffect(() => {
@@ -259,14 +259,14 @@ export function UserProfile() {
                 {myItemsLoading && (
                   <div className="text-muted-foreground">Loading…</div>
                 )}
-                {myItemsError && (
+                {myItemsError && myItemsError && myItemsError !== "canceled" && (
                   <div className="text-red-500">Error: {myItemsError}</div>
                 )}
                 {!myItemsLoading && !myItemsError && myItems.length === 0 && (
                   <div className="text-muted-foreground">No items.</div>
                 )}
 
-                {myItems.map((it) => (
+                {myItems.map((it: any) => (
                   <div
                     key={it.id}
                     className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"

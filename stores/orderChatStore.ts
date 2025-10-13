@@ -17,6 +17,8 @@ export type ChatMessage = {
   kind: "TEXT" | "SYSTEM" | "IMAGE" | "VIDEO";
   body: string;
   createdAt: Date;
+  role?: "buyer" | "seller" | "admin";
+  userName?: string | null;
 };
 
 const normalize = (m: ApiMessage): ChatMessage => ({
@@ -26,6 +28,8 @@ const normalize = (m: ApiMessage): ChatMessage => ({
   kind: m.kind,
   body: m.body ?? "",
   createdAt: new Date(m.created_at),
+  role: m.role,
+  userName: m.user_name ?? null,
 });
 
 type OrderChatSlice = {
