@@ -98,7 +98,7 @@ export default function AddMoneyPage() {
               <div className="flex justify-center">
                 <div className="bg-white p-6 rounded-lg border-2 border-dashed border-border">
                   <img
-                    src="https://pub-b154f3e2da92433ca95a88bda2406f50.r2.dev/553663340_1615982986029271_1819258205979535341_n.jpg"
+                    src="https://pub-b154f3e2da92433ca95a88bda2406f50.r2.dev/564427761_2098133533925746_5281792533260974739_n.jpg"
                     alt="QR Code for payment"
                     className="w-48 h-48 object-contain"
                   />

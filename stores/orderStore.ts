@@ -34,6 +34,15 @@ export type OrderRow = {
   cancelledAt?: string | null;
   cancelledBy?: string | null;
   disputedAt?: string | null;
+  settlement?: {
+    sellerPct?: number | null;
+    sellerAmount?: number | null;
+    buyerAmount?: number | null;
+    feeAmount?: number | null;
+    note?: string | null;
+    resolvedAt?: string | null;
+    resolvedBy?: string | null;
+  };
 };
 
 /* ===== Types จาก BE (snake_case) ===== */
@@ -61,6 +70,13 @@ type ApiOrder = {
   cancelled_at?: string | null;
   disputed_at?: string | null;
   cancelled_by?: string | null;
+  settle_seller_pct?: number | null;
+  settle_seller_amount?: string | number | null;
+  settle_buyer_amount?: string | number | null;
+  settle_fee_amount?: string | number | null;
+  settle_note?: string | null;
+  settle_resolved_at?: string | null;
+  settle_resolved_by?: string | null; // ชื่อ admin ที่ชี้ขาด
 };
 
 type OrdersResp = { success: boolean; data: ApiOrder[]; error?: string };
@@ -91,6 +107,31 @@ const toOrderRow = (o: ApiOrder): OrderRow => ({
   cancelledAt: o.cancelled_at ?? null,
   cancelledBy: o.cancelled_by ?? null,
   disputedAt: o.disputed_at ?? null,
+
+  settlement:
+    o.settle_seller_amount != null ||
+    o.settle_buyer_amount != null ||
+    o.settle_resolved_at != null
+      ? {
+          sellerPct:
+            typeof o.settle_seller_pct === "number"
+              ? o.settle_seller_pct
+              : o.settle_seller_pct ?? null,
+          sellerAmount:
+            o.settle_seller_amount == null
+              ? null
+              : Number(o.settle_seller_amount),
+          buyerAmount:
+            o.settle_buyer_amount == null
+              ? null
+              : Number(o.settle_buyer_amount),
+          feeAmount:
+            o.settle_fee_amount == null ? null : Number(o.settle_fee_amount),
+          note: o.settle_note ?? null,
+          resolvedAt: o.settle_resolved_at ?? null,
+          resolvedBy: o.settle_resolved_by ?? null,
+        }
+      : undefined,
 });
 
 /* ===== State ===== */
@@ -126,6 +167,10 @@ type OrdersState = {
   confirmBuyer: (id: string) => Promise<void>;
   cancelOrder: (id: string) => Promise<void>;
   disputeOrder: (id: string, reasonCode?: string) => Promise<void>;
+  adminResolveDispute: (
+    id: string,
+    input: { sellerPct: number; note?: string }
+  ) => Promise<void>;
 
   // optimistic helpers
   markMessagesSeen: (id: string) => void;
@@ -348,6 +393,33 @@ export const useOrderStore = create<OrdersState>()((set, get) => ({
     } catch (e: any) {
       set({ error: e?.message || "Failed to dispute" });
       if (prev) await get().fetchOrderById(id);
+    }
+  },
+
+  // stores/orderStore.ts (เพิ่มฟังก์ชัน)
+  adminResolveDispute: async (
+    id: string,
+    { sellerPct, note }: { sellerPct: number; note?: string }
+  ) => {
+    try {
+      // ⬅️ ฝั่ง BE ต้องการ seller_pct
+      const payload = { seller_pct: sellerPct, note };
+      const res = await api.post<{
+        success: boolean;
+        data?: any;
+        error?: string;
+      }>(`/v1/orders/${id}/dispute/resolve`, payload, {
+        withCredentials: true,
+      });
+      if (!res.data?.success)
+        throw new Error(res.data?.error || "Resolve failed");
+
+      await get().fetchOrderById(id);
+      await useUserStore.getState().fetchWallet();
+    } catch (e: any) {
+      set({ error: e?.message || "Failed to resolve dispute" });
+      await get().fetchOrderById(id);
+      await useUserStore.getState().fetchWallet();
     }
   },
 

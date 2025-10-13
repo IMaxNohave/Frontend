@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useCallback } from "react";
-import { subscribeSSE, type OrderUpdatePayload } from "@/app/services/sse";
+import { subscribeSSE } from "@/app/services/sse";
 import { useOrderChatSlice } from "@/stores/orderChatStore";
 
 type UseOrderChatOptions = {

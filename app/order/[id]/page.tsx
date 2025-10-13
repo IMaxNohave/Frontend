@@ -13,6 +13,8 @@ import { useUserStore } from "@/stores/userStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useOrderRealtime } from "@/hooks/useOrderRealtime";
+import { ResolveCustom } from "@/components/resolve-custom";
+import { Car } from "lucide-react";
 
 const fmtR = (n?: number | string) => `${Number(n ?? 0).toLocaleString()} R$`;
 
@@ -100,7 +102,6 @@ export default function OrderPage() {
               </div>
             </div>
           </div>
-
           {/* Item Info */}
           <Card className="bg-card border-border">
             <CardContent className="p-4">
@@ -132,7 +133,6 @@ export default function OrderPage() {
               </div>
             </CardContent>
           </Card>
-
           {/* Timeline */}
           <Card className="bg-card border-border">
             <CardHeader>
@@ -166,7 +166,6 @@ export default function OrderPage() {
               ))}
             </CardContent>
           </Card>
-
           {/* Actions */}
           <Card className="bg-card border-border">
             <CardHeader>
@@ -215,36 +214,36 @@ export default function OrderPage() {
                   Dispute
                 </Button>
               )}
-              +{" "}
-              {/* {role === "admin" && (
-                <>
-                  <Button
-                    onClick={async () => {
-                      await fetch(`/v1/orders/${order.id}/admin/join`, {
-                        method: "POST",
-                        credentials: "include",
-                      });
-                    }}
-                    className="bg-purple-600 hover:bg-purple-700"
-                  >
-                    Join as Admin
-                  </Button>
-                  <Button
-                    onClick={async () => {
-                      await fetch(`/v1/orders/${order.id}/admin/leave`, {
-                        method: "POST",
-                        credentials: "include",
-                      });
-                    }}
-                    variant="outline"
-                  >
-                    Leave
-                  </Button>
-                </>
-              )} */}
+              {role === "admin" &&
+                order.status?.toUpperCase() === "DISPUTED" && (
+                  <>
+                    {/* <Button
+                      onClick={actions.adminResolveBuyer100}
+                      variant="outline"
+                    >
+                      Resolve: Buyer 100%
+                    </Button>
+                    <Button onClick={actions.adminResolve50} variant="outline">
+                      Resolve: 50 / 50
+                    </Button> */}
+                    {/* <Button
+                      onClick={actions.adminResolveSeller100}
+                      className="bg-purple-600 hover:bg-purple-700"
+                    >
+                      Resolve: Seller 100%
+                    </Button> */}
+                    {/* ถ้าต้องการ custom input */}
+                    <ResolveCustom
+                      total={order.total}
+                      defaultPct={50}
+                      onSubmit={(pct, note) =>
+                        actions.adminResolveCustom(pct, note)
+                      }
+                    />
+                  </>
+                )}
             </CardContent>
           </Card>
-
           {/* Chat / Evidence */}
           <TradingChat
             orderId={order.id}
@@ -256,12 +255,9 @@ export default function OrderPage() {
             currentUserId={me?.id ?? ""}
             userRole={role === "guest" ? "buyer" : role}
           /> */}
-
           {/* Summary */}
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="text-card-foreground">summary</CardTitle>
-            </CardHeader>
+          {/* // OrderPage.tsx (ใน Summary Card) */}
+          <Card>
             <CardContent>
               <div className="space-y-2">
                 <div className="flex justify-between">
@@ -270,14 +266,57 @@ export default function OrderPage() {
                     {fmtR(order.price)}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">fee</span>
-                  <span className="text-card-foreground">{fmtR(0)}</span>
-                </div>
-                <div className="flex justify-between font-semibold text-lg">
-                  <span className="text-card-foreground">total</span>
-                  <span className="text-accent">{fmtR(order.total)}</span>
-                </div>
+
+                {/* ถ้ามีผลชี้ขาด แสดง breakdown */}
+                {order.settlement ? (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        Seller payout
+                        {typeof order.settlement.sellerPct === "number"
+                          ? ` (${order.settlement.sellerPct}%)`
+                          : ""}
+                      </span>
+                      <span className="text-card-foreground">
+                        {fmtR(order.settlement.sellerAmount ?? 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        Buyer refund
+                      </span>
+                      <span className="text-card-foreground">
+                        {fmtR(order.settlement.buyerAmount ?? 0)}
+                      </span>
+                    </div>
+                    {order.settlement.note ? (
+                      <div className="text-xs text-muted-foreground">
+                        Note: {order.settlement.note}
+                      </div>
+                    ) : null}
+                    {order.settlement.resolvedBy ? (
+                      <div className="text-xs text-muted-foreground">
+                        Resolved by: {order.settlement.resolvedBy}
+                      </div>
+                    ) : null}
+                    <div className="flex justify-between font-semibold text-lg">
+                      <span className="text-card-foreground">total</span>
+                      <span className="text-accent">{fmtR(order.total)}</span>
+                    </div>
+                  </>
+                ) : (
+                  // กรณีปกติ (ยังไม่มีชี้ขาด)
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">fee</span>
+                      <span className="text-card-foreground">{fmtR(0)}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold text-lg">
+                      <span className="text-card-foreground">total</span>
+                      <span className="text-accent">{fmtR(order.total)}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>

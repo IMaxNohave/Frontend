@@ -82,6 +82,7 @@ export function useOrderDetail(
     disputeOrder,
 
     updateOrderStatusLocal,
+    adminResolveDispute,
   } = useOrdersSlice((s) => ({
     me: s.me,
     meLoaded: s.meLoaded,
@@ -98,6 +99,7 @@ export function useOrderDetail(
     disputeOrder: s.disputeOrder,
 
     updateOrderStatusLocal: s.updateOrderStatusLocal,
+    adminResolveDispute: s.adminResolveDispute,
   }));
 
   const isReady = useAuthStore((s) => s.isReady);
@@ -119,7 +121,7 @@ export function useOrderDetail(
     if (!order) return "guest";
     if (order.seller?.id === me.id) return "seller";
     if (order.buyer?.id === me.id) return "buyer";
-    return "guest";
+    return "admin";
   }, [order, me]);
 
   const k: StatusKey = normStatus(order?.status) as StatusKey;
@@ -221,6 +223,18 @@ export function useOrderDetail(
         time: fmt(order.cancelledAt),
       });
     }
+    if (order.settlement?.resolvedAt) {
+      tail.push({
+        key: "dispute_resolved",
+        label: `ข้อพิพาทถูกตัดสิน${
+          typeof order.settlement?.sellerPct === "number"
+            ? ` (ผู้ขาย ${order.settlement.sellerPct}%)`
+            : ""
+        }`,
+        completed: true,
+        time: fmt(order.settlement.resolvedAt),
+      });
+    }
     if (order.tradeDeadlineAt) {
       tail.push({
         key: "trade_deadline",
@@ -228,14 +242,15 @@ export function useOrderDetail(
         completed: new Date(order.tradeDeadlineAt).getTime() < Date.now(),
         time: fmt(order.tradeDeadlineAt),
       });
-    }
-    if (order.deadlineAt) {
-      tail.push({
-        key: "order_deadline",
-        label: "Order escrow deadline",
-        completed: new Date(order.deadlineAt).getTime() < Date.now(),
-        time: fmt(order.deadlineAt),
-      });
+    } else {
+      if (order.deadlineAt) {
+        tail.push({
+          key: "order_deadline",
+          label: "Order escrow deadline",
+          completed: new Date(order.deadlineAt).getTime() < Date.now(),
+          time: fmt(order.deadlineAt),
+        });
+      }
     }
 
     return [...steps, ...tail];
@@ -263,6 +278,9 @@ export function useOrderDetail(
     order?.status?.toUpperCase?.() || ""
   );
 
+  const canAdminResolve =
+    role === "admin" && order?.status?.toUpperCase() === "DISPUTED";
+
   // actions เรียกผ่าน store
   const actions = {
     accept: () => acceptOrder(orderId),
@@ -271,6 +289,12 @@ export function useOrderDetail(
     cancel: () => cancelOrder(orderId),
     dispute: () => disputeOrder(orderId, "OTHER"),
     markMessagesSeen: () => {}, // optional
+    adminResolve50: () => adminResolveDispute(orderId, { sellerPct: 50 }),
+    adminResolveBuyer100: () => adminResolveDispute(orderId, { sellerPct: 0 }),
+    adminResolveSeller100: () =>
+      adminResolveDispute(orderId, { sellerPct: 100 }),
+    adminResolveCustom: (sellerPct: number, note?: string) =>
+      adminResolveDispute(orderId, { sellerPct, note }),
   };
 
   return {
@@ -288,6 +312,7 @@ export function useOrderDetail(
       canConfirmBuyer,
       canCancel,
       canDispute,
+      canAdminResolve,
     },
     actions,
   };

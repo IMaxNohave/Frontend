@@ -137,7 +137,11 @@ export function TradingChat({
         <div className="flex items-center justify-between">
           <CardTitle className="text-card-foreground">In-Order Chat</CardTitle>
           <Badge variant="outline" className="text-xs capitalize">
-            {currentUserRole}
+            {otherRole === "buyer"
+              ? "Buyer"
+              : otherRole === "seller"
+              ? "Seller"
+              : "Admin"}
           </Badge>
         </div>
       </CardHeader>

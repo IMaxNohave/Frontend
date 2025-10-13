@@ -1,11 +1,17 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useState, useEffect, useCallback } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Search,
   AlertTriangle,
@@ -17,22 +23,28 @@ import {
   Package,
   DollarSign,
   Loader2,
-} from "lucide-react"
-import { useRouter } from "next/navigation"
-import { MarketplaceHeader } from "@/components/marketplace-header"
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { MarketplaceHeader } from "@/components/marketplace-header";
 import { useAuthStore } from "@/stores/authStore";
 import { useUserStore } from "@/stores/userStore";
 import { useDebounce } from "use-debounce";
 
 interface Order {
-  id: string
-  itemName: string
-  price: string
-  buyer: string
-  seller: string
-  status: "pending" | "confirmed" | "completed" | "disputed" | "cancelled" | string
-  createdAt: Date
-  description: string
+  id: string;
+  itemName: string;
+  price: string;
+  buyer: string;
+  seller: string;
+  status:
+    | "pending"
+    | "confirmed"
+    | "completed"
+    | "disputed"
+    | "cancelled"
+    | string;
+  createdAt: Date;
+  description: string;
 }
 
 function decodeJwt<T = any>(token: string): T | null {
@@ -60,7 +72,9 @@ const normalizeStatus = (s: string | undefined | null) => {
   if (["escrow_held", "pending", "hold", "awaiting_payment"].includes(x)) {
     return "escrow_held";
   }
-  if (["in_trade", "ready_to_trade", "confirmed", "await_confirm"].includes(x)) {
+  if (
+    ["in_trade", "ready_to_trade", "confirmed", "await_confirm"].includes(x)
+  ) {
     return "in_trade";
   }
   if (["completed", "complete"].includes(x)) {
@@ -78,16 +92,15 @@ const normalizeStatus = (s: string | undefined | null) => {
   return x; // เผื่ออนาคตมีสถานะใหม่
 };
 
-
 export default function AdminPage() {
-  const [orders, setOrders] = useState<Order[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [totalOrders, setTotalOrders] = useState(0)
-  const [searchTerm, setSearchTerm] = useState("")
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm] = useDebounce(searchTerm, 500);
-  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [guardDone, setGuardDone] = useState(false);
-  const router = useRouter()
+  const router = useRouter();
 
   // Guard Effect (เหมือนเดิม)
   useEffect(() => {
@@ -116,7 +129,8 @@ export default function AdminPage() {
       }
       setGuardDone(true);
       try {
-        const res = await fetch("/api/v1/auth/user/me", { // แก้ path ให้ตรง
+        const res = await fetch("/api/v1/auth/user/me", {
+          // แก้ path ให้ตรง
           headers: { Authorization: `Bearer ${token}` },
           signal: ctrl.signal,
         });
@@ -133,7 +147,6 @@ export default function AdminPage() {
     })();
     return () => ctrl.abort();
   }, [router]);
-
 
   const fetchOrders = useCallback(async () => {
     if (!guardDone) return;
@@ -183,7 +196,6 @@ export default function AdminPage() {
     fetchOrders();
   }, [fetchOrders]);
 
-
   if (!guardDone) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -230,11 +242,11 @@ export default function AdminPage() {
         return <Clock className="h-4 w-4" />;
     }
   };
-  
-    // แทนที่ของเดิม
-    const calculateStats = (status: string) => {
-      return orders.filter((o) => o.status === status).length;
-    };
+
+  // แทนที่ของเดิม
+  const calculateStats = (status: string) => {
+    return orders.filter((o) => o.status === status).length;
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -243,8 +255,12 @@ export default function AdminPage() {
         <div className="max-w-7xl mx-auto space-y-6 mt-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
-              <p className="text-muted-foreground">Monitor all trading activities and manage orders</p>
+              <h1 className="text-3xl font-bold text-foreground">
+                Admin Dashboard
+              </h1>
+              <p className="text-muted-foreground">
+                Monitor all trading activities and manage orders
+              </p>
             </div>
           </div>
 
@@ -255,7 +271,9 @@ export default function AdminPage() {
                   <Clock className="h-5 w-5 text-yellow-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{calculateStats("escrow_held")}</p>
+                  <p className="text-2xl font-bold">
+                    {calculateStats("escrow_held")}
+                  </p>
                   <p className="text-sm text-muted-foreground">PENDING</p>
                 </div>
               </CardContent>
@@ -267,7 +285,9 @@ export default function AdminPage() {
                   <Package className="h-5 w-5 text-blue-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{calculateStats("in_trade")}</p>
+                  <p className="text-2xl font-bold">
+                    {calculateStats("in_trade")}
+                  </p>
                   <p className="text-sm text-muted-foreground">IN TRADE</p>
                 </div>
               </CardContent>
@@ -279,7 +299,9 @@ export default function AdminPage() {
                   <CheckCircle className="h-5 w-5 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{calculateStats("completed")}</p>
+                  <p className="text-2xl font-bold">
+                    {calculateStats("completed")}
+                  </p>
                   <p className="text-sm text-muted-foreground">COMPLETED</p>
                 </div>
               </CardContent>
@@ -291,7 +313,9 @@ export default function AdminPage() {
                   <AlertTriangle className="h-5 w-5 text-red-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{calculateStats("disputed")}</p>
+                  <p className="text-2xl font-bold">
+                    {calculateStats("disputed")}
+                  </p>
                   <p className="text-sm text-muted-foreground">DISPUTED</p>
                 </div>
               </CardContent>
@@ -303,7 +327,9 @@ export default function AdminPage() {
                   <Clock className="h-5 w-5 text-amber-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{calculateStats("expired")}</p>
+                  <p className="text-2xl font-bold">
+                    {calculateStats("expired")}
+                  </p>
                   <p className="text-sm text-muted-foreground">EXPIRED</p>
                 </div>
               </CardContent>
@@ -315,7 +341,9 @@ export default function AdminPage() {
                   <XCircle className="h-5 w-5 text-gray-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{calculateStats("cancelled")}</p>
+                  <p className="text-2xl font-bold">
+                    {calculateStats("cancelled")}
+                  </p>
                   <p className="text-sm text-muted-foreground">CANCELLED</p>
                 </div>
               </CardContent>
@@ -376,56 +404,79 @@ export default function AdminPage() {
               ) : orders.length > 0 ? (
                 <div className="space-y-4">
                   {orders.map((order) => (
-                    <div key={order.id} className="border border-border rounded-lg p-4 hover:bg-muted/30 transition-colors">
+                    <div
+                      key={order.id}
+                      className="border border-border rounded-lg p-4 hover:bg-muted/30 transition-colors"
+                    >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-2">
                             {getStatusIcon(order.status)}
-                            <h3 className="font-semibold text-card-foreground">{order.id}</h3>
+                            <h3 className="font-semibold text-card-foreground">
+                              {order.id}
+                            </h3>
                           </div>
-                          <Badge className={getStatusColor(order.status)}>{order.status.replace('_', ' ').toUpperCase()}</Badge>
+                          <Badge className={getStatusColor(order.status)}>
+                            {order.status.replace("_", " ").toUpperCase()}
+                          </Badge>
                         </div>
                         <div className="flex items-center gap-2">
                           {/* --- MODIFIED --- เพิ่ม onClick event ที่นี่ */}
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
+                          <Button
+                            size="sm"
+                            variant="outline"
                             className="border-border hover:bg-accent bg-transparent"
                             onClick={() => router.push(`/order/${order.id}`)}
                           >
                             <Eye className="h-4 w-4 mr-2" /> View Details
                           </Button>
-                          {order.status === "disputed" && (
+                          {/* {order.status === "disputed" && (
                             <Button size="sm" className="bg-accent hover:bg-accent/90">
                               <MessageSquare className="h-4 w-4 mr-2" /> Manage Dispute
                             </Button>
-                          )}
+                          )} */}
                         </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
                         <div>
                           <p className="text-sm text-muted-foreground">Item</p>
-                          <p className="font-medium text-card-foreground">{order.itemName}</p>
+                          <p className="font-medium text-card-foreground">
+                            {order.itemName}
+                          </p>
                           <p className="text-sm text-accent">{order.price}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-muted-foreground">Parties</p>
-                          <p className="text-sm text-card-foreground">
-                            <span className="text-blue-500">Buyer:</span> {order.buyer}
+                          <p className="text-sm text-muted-foreground">
+                            Parties
                           </p>
                           <p className="text-sm text-card-foreground">
-                            <span className="text-green-500">Seller:</span> {order.seller}
+                            <span className="text-blue-500">Buyer:</span>{" "}
+                            {order.buyer}
+                          </p>
+                          <p className="text-sm text-card-foreground">
+                            <span className="text-green-500">Seller:</span>{" "}
+                            {order.seller}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-muted-foreground">Created</p>
-                          <p className="text-sm text-card-foreground">{order.createdAt.toLocaleDateString()}</p>
-                          <p className="text-sm text-card-foreground">{order.createdAt.toLocaleTimeString()}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Created
+                          </p>
+                          <p className="text-sm text-card-foreground">
+                            {order.createdAt.toLocaleDateString()}
+                          </p>
+                          <p className="text-sm text-card-foreground">
+                            {order.createdAt.toLocaleTimeString()}
+                          </p>
                         </div>
                       </div>
                       <div className="mb-3">
-                        <p className="text-sm text-muted-foreground mb-1">Description</p>
-                        <p className="text-sm text-card-foreground">{order.description}</p>
+                        <p className="text-sm text-muted-foreground mb-1">
+                          Description
+                        </p>
+                        <p className="text-sm text-card-foreground">
+                          {order.description}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -433,7 +484,9 @@ export default function AdminPage() {
               ) : (
                 <div className="text-center py-8">
                   <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">No orders found matching your criteria.</p>
+                  <p className="text-muted-foreground">
+                    No orders found matching your criteria.
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -441,5 +494,5 @@ export default function AdminPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
