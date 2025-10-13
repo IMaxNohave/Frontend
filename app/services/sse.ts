@@ -1,5 +1,5 @@
 // app/services/sse.ts
-const API_PREFIX = "/api";
+import { api } from "@/app/services/api";
 
 export type SSEHandlers = {
   onOrderUpdate?: (data: any) => void;
@@ -7,23 +7,18 @@ export type SSEHandlers = {
   onPing?: (data: any) => void;
   onError?: (err: any) => void;
 };
-
-export type OrderUpdatePayload = {
-  orderId: string;
-  action: string;
-  side?: "buyer" | "seller";
-};
-
 type ExtraEvent = [name: string, handler: (data: any) => void];
 
 export function subscribeSSE(
   topic: string,
   handlers: SSEHandlers = {},
-  extra: ExtraEvent[] = [] // 👈 เพิ่มพารามิเตอร์
+  extra: ExtraEvent[] = []
 ) {
-  const es = new EventSource(
-    `${API_PREFIX}/v1/sse?${new URLSearchParams({ topic })}`
-  );
+  const base = (api.defaults.baseURL || "").replace(/\/$/, ""); // <<< ใช้ baseURL ของ axios
+  const url = `${base}/v1/sse?${new URLSearchParams({ topic })}`;
+
+  // <<< ให้ส่งคุกกี้/credential ไปด้วย
+  const es = new EventSource(url, { withCredentials: true });
 
   es.addEventListener("ready", (e) => {
     try {
@@ -41,7 +36,6 @@ export function subscribeSSE(
     } catch {}
   });
 
-  // 👇 รับ custom events เช่น "order.message.new", "order.message.read"
   for (const [name, h] of extra) {
     es.addEventListener(name, (e) => {
       try {
