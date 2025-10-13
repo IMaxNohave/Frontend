@@ -325,7 +325,10 @@ export const useOrderStore = create<OrdersState>()((set, get) => ({
       await useUserStore.getState().fetchWallet(); // update ยอดเงิน
     } catch (e: any) {
       set({ error: e?.message || "Failed to cancel order" });
-      if (prev) await get().fetchOrderById(id);
+      if (prev) {
+        await get().fetchOrderById(id);
+        await useUserStore.getState().fetchWallet(); // update ยอดเงิน
+      }
     }
   },
 

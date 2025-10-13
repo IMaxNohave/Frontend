@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useUserStore } from "@/stores/userStore";
 
 interface ItemDetailProps {
   itemId: string;
@@ -61,6 +62,8 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
   // โปรไฟล์ผู้ใช้จาก backend (เชื่อถือได้กว่า localStorage)
   const [me, setMe] = useState<Me | null>(null);
   const [meLoaded, setMeLoaded] = useState(false);
+
+  const fetchWallet = useUserStore((s) => s.fetchWallet);
 
   // ---- โหลด Item ----
   useEffect(() => {
@@ -173,6 +176,7 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
       const ok = (res.data && (res.data.success ?? true)) as boolean;
       if (!ok) throw new Error(res.data?.error || "Buy failed");
       setConfirmOpen(false);
+      fetchWallet(); // รีเฟรชยอดเงิน
       alert("Order created!");
       // router.push(`/order/${res.data.data.orderId}`);
     } catch (e: any) {
