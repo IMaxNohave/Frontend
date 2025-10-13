@@ -229,8 +229,7 @@ export function useOrderDetail(
         completed: new Date(order.tradeDeadlineAt).getTime() < Date.now(),
         time: fmt(order.tradeDeadlineAt),
       });
-    }
-    if (order.deadlineAt) {
+    } else if (order.deadlineAt) {
       tail.push({
         key: "order_deadline",
         label: "Order escrow deadline",
@@ -260,9 +259,10 @@ export function useOrderDetail(
   const canCancel = ["ESCROW_HELD", "IN_TRADE", "AWAIT_CONFIRM"].includes(
     order?.status?.toUpperCase?.() || ""
   );
-  const canDispute = ["IN_TRADE", "AWAIT_CONFIRM"].includes(
-    order?.status?.toUpperCase?.() || ""
-  );
+  const canDispute =
+    (role === "buyer" || role === "seller") &&
+    ["IN_TRADE", "AWAIT_CONFIRM"].includes(order.status) &&
+    !order.disputedAt; // หรือ order.status !== "DISPUTED"
 
   // actions เรียกผ่าน store
   const actions = {

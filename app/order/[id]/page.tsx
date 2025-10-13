@@ -35,11 +35,11 @@ export default function OrderPage() {
     actions,
   } = useOrderDetail(orderId, { pollMs: null });
 
-  useEffect(() => {
-    if (order) {
-      console.log("Order ID:", order);
-    }
-  }, [order]);
+  // useEffect(() => {
+  //   if (order) {
+  //     console.log("Order ID:", order);
+  //   }
+  // }, [order]);
 
   useOrderRealtime(order?.id);
 
@@ -216,7 +216,10 @@ export default function OrderPage() {
               )}
               {guards.canDispute && (
                 <Button
-                  onClick={actions.dispute}
+                  onClick={async () => {
+                    if (!confirm("Open a dispute?")) return;
+                    await actions.dispute(); // ภายในเรียก store.disputeOrder
+                  }}
                   variant="destructive"
                   className="bg-red-600 hover:bg-red-700"
                 >

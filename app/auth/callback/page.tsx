@@ -3,8 +3,8 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useUserStore } from "@/stores/userStore";
 import { useAuthStore } from "@/stores/authStore";
+import { Loader2, ChevronRight } from "lucide-react";
 
 // ปลอดภัยกับ base64url และกัน error
 function decodeJwt<T = any>(token: string): T | null {
@@ -31,17 +31,16 @@ export default function AuthCallbackPage() {
     const ctrl = new AbortController();
 
     (async () => {
-      // 1) ดึง token ให้พร้อมก่อน (จะไปโหลดจาก cookie httpOnly → token endpoint แล้วเก็บใน localStorage)
+      // 1) init token จาก httpOnly cookie → state/localStorage
       const initToken = useAuthStore.getState().initToken;
       if (initToken) await initToken();
 
-      // 2) อ่าน token จาก store/LS แล้ว decode payload → ตัดสินใจทางไปทันที
+      // 2) อ่าน token แล้วตัดสินใจทางไป
       let token = useAuthStore.getState().token || null;
       if (!token && typeof window !== "undefined") {
         token = localStorage.getItem("token");
       }
 
-      // ถ้าไม่มี token → กลับหน้า login
       if (!token) {
         router.replace("/");
         return;
@@ -54,51 +53,84 @@ export default function AuthCallbackPage() {
 
       const payload = decodeJwt<Payload>(token);
 
-      // token เสีย/อ่านไม่ได้ → login
       if (!payload) {
         router.replace("/");
         return;
       }
 
-      // ถ้า token หมดอายุ → login
       if (payload.exp && Date.now() / 1000 >= payload.exp) {
         router.replace("/");
         return;
       }
 
-      // 3) ตัดสินใจปลายทางจาก payload (เร็ว ไม่ต้องรอ DB)
       const isAdminFromJwt = Number(payload.user_type) === 2;
       router.replace(isAdminFromJwt ? "/admin" : "/marketplace");
 
-      // 4) ยิง /auth/user/me แบบ “เบื้องหลัง” เพื่อ sync Zustand ให้ครบ
-      //    (ถ้าอยากกัน flash role mismatch ให้เช็คแล้ว redirect ซ้ำถ้าค่าไม่ตรง)
-    //   try {
-    //     const res = await fetch("/api/auth/user/me", {
-    //       credentials: "include",
-    //       signal: ctrl.signal,
-    //     });
-
-    //     if (res.ok) {
-    //       const json = await res.json();
-    //       const me = json?.data;
-    //       if (me) {
-    //         // อัปเดต global state จริง
-    //         useUserStore.getState().setFromMe(me);
-
-    //         // (ออปชัน) ถ้าบังเอิญ role จาก DB ไม่ตรงกับ JWT ให้ปรับเส้นทางอีกครั้ง
-    //         const isAdminFromDb = Number(me.user_type) === 2;
-    //         if (isAdminFromDb !== isAdminFromJwt) {
-    //           router.replace(isAdminFromDb ? "/admin" : "/marketplace");
-    //         }
-    //       }
-    //     }
-    //   } catch {
-    //     // เงียบ ๆ ไป: ไม่รบกวน UX เพราะเราตัดสินใจจาก JWT ไปแล้ว
-    //   }
+      // (ออปชัน) ยิง /auth/user/me เบื้องหลังได้ตามที่คอมเมนต์ไว้
     })();
 
     return () => ctrl.abort();
   }, [router]);
 
-  return <p>Signing you in…</p>;
+  return (
+    <div className="min-h-screen w-full bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Header แสดงว่ากำลัง redirect */}
+        <div className="mb-4 text-center">
+          <p className="inline-flex items-center gap-2 text-sm tracking-wide text-muted-foreground">
+            Redirecting
+            <ChevronRight className="h-4 w-4 animate-pulse" />
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+          <div className="px-6 pt-6 pb-4 text-center">
+            <div className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+
+            <h1 className="text-xl font-semibold text-card-foreground">
+              Signing you in…
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Checking your session and sending you to the right place.
+            </p>
+          </div>
+
+          {/* Progress bar แบบวิ่ง */}
+          <div className="h-1 w-full bg-muted/60 overflow-hidden">
+            <div className="h-full w-1/3 animate-[loading_1.2s_ease-in-out_infinite] bg-primary" />
+          </div>
+
+          <div className="px-6 py-4 text-center">
+            <p className="text-xs text-muted-foreground">
+              If nothing happens, you can{" "}
+              <a
+                href="/"
+                className="font-medium text-primary underline underline-offset-4"
+              >
+                go back to sign in
+              </a>
+              .
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* animation keyframes */}
+      <style jsx>{`
+        @keyframes loading {
+          0% {
+            transform: translateX(-100%);
+          }
+          50% {
+            transform: translateX(50%);
+          }
+          100% {
+            transform: translateX(200%);
+          }
+        }
+      `}</style>
+    </div>
+  );
 }

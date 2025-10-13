@@ -22,6 +22,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useUserStore } from "@/stores/userStore";
 
 interface ItemDetailProps {
@@ -65,6 +73,9 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
   // โปรไฟล์ผู้ใช้จาก backend (เชื่อถือได้กว่า localStorage)
   const [me, setMe] = useState<Me | null>(null);
   const [meLoaded, setMeLoaded] = useState(false);
+
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
 
   const fetchWallet = useUserStore((s) => s.fetchWallet);
 
@@ -227,7 +238,11 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
       if (!ok) throw new Error(res.data?.error || "Buy failed");
       setConfirmOpen(false);
       fetchWallet(); // รีเฟรชยอดเงิน
-      alert("Order created!");
+      //alert("Order created!");
+
+      // 🔔 show success modal
+      setCreatedOrderId(res.data?.data?.orderId ?? null);
+      setSuccessOpen(true);
       // router.push(`/order/${res.data.data.orderId}`);
     } catch (e: any) {
       setConfirmOpen(false); // ปิด Dialog ทุกครั้งที่เกิด error
@@ -473,6 +488,46 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
           </div>
         </div>
       </div>
+
+      {/* Success Modal */}
+      <Dialog open={successOpen} onOpenChange={setSuccessOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-green-600">Purchase Successful</DialogTitle>
+            <DialogDescription>
+              Your order has been created
+              {createdOrderId ? ` (#${createdOrderId})` : ""}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 text-sm text-muted-foreground">
+            You can view the order details or continue shopping.
+          </div>
+
+          <DialogFooter className="gap-2">
+            {createdOrderId && (
+              <Button
+                className="bg-primary hover:bg-primary/90"
+                onClick={() => {
+                  setSuccessOpen(false);
+                  router.push(`/order/${createdOrderId}`);
+                }}
+              >
+                View Order
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSuccessOpen(false);
+                router.push("/marketplace");
+              }}
+            >
+              Back to Marketplace
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
