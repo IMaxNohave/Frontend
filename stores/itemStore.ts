@@ -16,6 +16,7 @@ export type Item = {
   price: number;
   status: number;
   category: { id: string | null; name: string | null; detail: string | null };
+  expiresAt?: string | null;
 };
 
 type ItemState = {

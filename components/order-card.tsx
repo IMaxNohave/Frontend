@@ -149,7 +149,7 @@ export function OrderCard({
                   variant="outline"
                   size="sm"
                   onClick={onView}
-                  disabled={!canView}
+                  // disabled={!canView}
                   title={
                     !canView ? "Seller must accept before viewing details" : ""
                   }

@@ -40,6 +40,7 @@ type Item = {
   rarity?: string | null;
   condition?: string | null;
   status?: number; // 1 = available
+  expiresAt?: string | null; // ⬅️ เพิ่ม
 };
 
 type Me = {
@@ -64,6 +65,37 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
   const [meLoaded, setMeLoaded] = useState(false);
 
   const fetchWallet = useUserStore((s) => s.fetchWallet);
+
+  function useCountdown(targetIso?: string | null) {
+    const [ms, setMs] = useState<number | null>(null);
+
+    useEffect(() => {
+      if (!targetIso) {
+        setMs(null);
+        return;
+      }
+      const target = new Date(targetIso).getTime();
+      const tick = () => setMs(Math.max(0, target - Date.now()));
+      tick(); // set ครั้งแรก
+      const id = setInterval(tick, 1000);
+      return () => clearInterval(id);
+    }, [targetIso]);
+
+    return ms;
+  }
+
+  function formatRemain(ms: number | null) {
+    if (ms === null) return "";
+    if (ms <= 0) return "Expired";
+    const s = Math.floor(ms / 1000);
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (d > 0) return `${d}d ${h}h ${m}m`;
+    if (h > 0) return `${h}h ${m}m ${sec}s`;
+    return `${m}m ${sec}s`;
+  }
 
   // ---- โหลด Item ----
   useEffect(() => {
@@ -126,13 +158,17 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
     return false;
   }, [item, me]);
 
+  const remainingMs = useCountdown(item?.expiresAt ?? null);
+  const isExpired = remainingMs !== null && remainingMs <= 0;
+
   // ---- แสดงปุ่มซื้อได้ไหม ----
   const canBuy = useMemo(() => {
     if (!item) return false;
     if (isOwner) return false;
-    if (typeof item.status === "number" && item.status !== 1) return false; // ไม่พร้อมขาย
+    if (isExpired) return false; // ⬅️ เพิ่ม
+    if (typeof item.status === "number" && item.status !== 1) return false;
     return true;
-  }, [item, isOwner]);
+  }, [item, isOwner, isExpired]);
 
   const handleEdit = () => item && router.push(`/edit-item/${item.id}`);
 
@@ -267,6 +303,23 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
               </Badge>
             )}
           </div>
+          {item.expiresAt && (
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="secondary"
+                className={
+                  isExpired
+                    ? "bg-destructive/20 text-destructive"
+                    : "bg-amber-500/15 text-amber-700 ring-1 ring-amber-500/30"
+                }
+              >
+                {isExpired ? "Expired" : `Ends in ${formatRemain(remainingMs)}`}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {new Date(item.expiresAt).toLocaleString()}
+              </span>
+            </div>
+          )}
 
           <Card className="bg-card border-border">
             <CardContent className="p-4">
