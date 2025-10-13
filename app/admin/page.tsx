@@ -52,6 +52,30 @@ function decodeJwt<T = any>(token: string): T | null {
   }
 }
 
+// วางไว้เหนือ component functions ไหนก็ได้ในไฟล์นี้
+const normalizeStatus = (s: string | undefined | null) => {
+  const x = String(s ?? "").toLowerCase();
+
+  // กลุ่มสถานะ (เลือกชื่อหลักไว้ใช้ที่ FE)
+  if (["escrow_held", "pending", "hold", "awaiting_payment"].includes(x)) {
+    return "escrow_held";
+  }
+  if (["in_trade", "ready_to_trade", "confirmed", "await_confirm"].includes(x)) {
+    return "in_trade";
+  }
+  if (["completed", "complete"].includes(x)) {
+    return "completed";
+  }
+  if (["disputed", "dispute"].includes(x)) {
+    return "disputed";
+  }
+  if (["cancelled", "canceled"].includes(x)) {
+    return "cancelled";
+  }
+  return x; // อื่น ๆ คงไว้ (กันสถานะใหม่ในอนาคต)
+};
+
+
 export default function AdminPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -139,6 +163,8 @@ export default function AdminPage() {
         const formattedOrders = json.data.orders.map((o: any) => ({
           ...o,
           createdAt: new Date(o.createdAt),
+          // ✅ บังคับ status ให้เข้ากลุ่มที่เรากำหนด
+          status: normalizeStatus(o.status),
         }));
         setOrders(formattedOrders);
         setTotalOrders(json.data.total);
@@ -165,47 +191,43 @@ export default function AdminPage() {
   }
 
   const getStatusColor = (status: Order["status"]) => {
-    switch (status) {
-      case "pending":
-      case "escrow_held":
-        return "bg-yellow-500/20 text-yellow-500 border-yellow-500/30";
-      case "confirmed":
-      case "ready_to_trade":
-        return "bg-blue-500/20 text-blue-500 border-blue-500/30";
-      case "completed":
-        return "bg-green-500/20 text-green-500 border-green-500/30";
-      case "disputed":
-        return "bg-red-500/20 text-red-500 border-red-500/30";
-      case "cancelled":
-        return "bg-gray-500/20 text-gray-500 border-gray-500/30";
-      default:
-        return "bg-muted/20 text-muted-foreground";
-    }
-  };
+  switch (status) {
+    case "escrow_held":
+      return "bg-yellow-500/20 text-yellow-500 border-yellow-500/30";
+    case "in_trade":
+      return "bg-blue-500/20 text-blue-500 border-blue-500/30";
+    case "completed":
+      return "bg-green-500/20 text-green-500 border-green-500/30";
+    case "disputed":
+      return "bg-red-500/20 text-red-500 border-red-500/30";
+    case "cancelled":
+      return "bg-gray-500/20 text-gray-500 border-gray-500/30";
+    default:
+      return "bg-muted/20 text-muted-foreground";
+  }
+};
 
   const getStatusIcon = (status: Order["status"]) => {
-    switch (status) {
-      case "pending":
-      case "escrow_held":
-        return <Clock className="h-4 w-4" />;
-      case "confirmed":
-      case "ready_to_trade":
-        return <Package className="h-4 w-4" />;
-      case "completed":
-        return <CheckCircle className="h-4 w-4" />;
-      case "disputed":
-        return <AlertTriangle className="h-4 w-4" />;
-      case "cancelled":
-        return <XCircle className="h-4 w-4" />;
-      default:
-        return <Clock className="h-4 w-4" />;
-    }
-  };
-  
-  const calculateStats = (status: string | string[]) => {
-    const statuses = Array.isArray(status) ? status : [status];
-    return orders.filter(o => statuses.includes(o.status)).length;
+  switch (status) {
+    case "escrow_held":
+      return <Clock className="h-4 w-4" />;
+    case "in_trade":
+      return <Package className="h-4 w-4" />;
+    case "completed":
+      return <CheckCircle className="h-4 w-4" />;
+    case "disputed":
+      return <AlertTriangle className="h-4 w-4" />;
+    case "cancelled":
+      return <XCircle className="h-4 w-4" />;
+    default:
+      return <Clock className="h-4 w-4" />;
   }
+};
+  
+    // แทนที่ของเดิม
+    const calculateStats = (status: string) => {
+      return orders.filter((o) => o.status === status).length;
+    };
 
   return (
     <div className="min-h-screen bg-background">
@@ -222,50 +244,65 @@ export default function AdminPage() {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Card className="bg-card border-border">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 bg-yellow-500/20 rounded-lg"><Clock className="h-5 w-5 text-yellow-500" /></div>
+                <div className="p-2 bg-yellow-500/20 rounded-lg">
+                  <Clock className="h-5 w-5 text-yellow-500" />
+                </div>
                 <div>
-                  <p className="text-2xl font-bold">{calculateStats(['pending', 'escrow_held'])}</p>
-                  <p className="text-sm text-muted-foreground">Pending</p>
+                  <p className="text-2xl font-bold">{calculateStats("escrow_held")}</p>
+                  <p className="text-sm text-muted-foreground">ESCROW HELD</p>
                 </div>
               </CardContent>
             </Card>
+
             <Card className="bg-card border-border">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 bg-blue-500/20 rounded-lg"><Package className="h-5 w-5 text-blue-500" /></div>
+                <div className="p-2 bg-blue-500/20 rounded-lg">
+                  <Package className="h-5 w-5 text-blue-500" />
+                </div>
                 <div>
-                  <p className="text-2xl font-bold">{calculateStats(['confirmed', 'ready_to_trade'])}</p>
-                  <p className="text-sm text-muted-foreground">Confirmed</p>
+                  <p className="text-2xl font-bold">{calculateStats("in_trade")}</p>
+                  <p className="text-sm text-muted-foreground">IN TRADE</p>
                 </div>
               </CardContent>
             </Card>
+
             <Card className="bg-card border-border">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 bg-green-500/20 rounded-lg"><CheckCircle className="h-5 w-5 text-green-500" /></div>
+                <div className="p-2 bg-green-500/20 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                </div>
                 <div>
-                  <p className="text-2xl font-bold">{calculateStats('completed')}</p>
-                  <p className="text-sm text-muted-foreground">Completed</p>
+                  <p className="text-2xl font-bold">{calculateStats("completed")}</p>
+                  <p className="text-sm text-muted-foreground">COMPLETED</p>
                 </div>
               </CardContent>
             </Card>
+
             <Card className="bg-card border-border">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 bg-red-500/20 rounded-lg"><AlertTriangle className="h-5 w-5 text-red-500" /></div>
+                <div className="p-2 bg-red-500/20 rounded-lg">
+                  <AlertTriangle className="h-5 w-5 text-red-500" />
+                </div>
                 <div>
-                  <p className="text-2xl font-bold">{calculateStats('disputed')}</p>
-                  <p className="text-sm text-muted-foreground">Disputed</p>
+                  <p className="text-2xl font-bold">{calculateStats("disputed")}</p>
+                  <p className="text-sm text-muted-foreground">DISPUTED</p>
                 </div>
               </CardContent>
             </Card>
+
             <Card className="bg-card border-border">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 bg-accent/20 rounded-lg"><DollarSign className="h-5 w-5 text-accent" /></div>
+                <div className="p-2 bg-accent/20 rounded-lg">
+                  <DollarSign className="h-5 w-5 text-accent" />
+                </div>
                 <div>
                   <p className="text-2xl font-bold">{totalOrders}</p>
-                  <p className="text-sm text-muted-foreground">Total Orders</p>
+                  <p className="text-sm text-muted-foreground">TOTAL ORDERS</p>
                 </div>
               </CardContent>
             </Card>
           </div>
+
 
           <Card className="bg-card border-border">
             <CardContent className="p-4">
@@ -279,7 +316,7 @@ export default function AdminPage() {
                     className="pl-10 bg-input border-border"
                   />
                 </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                {/* <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-full md:w-48 bg-input border-border">
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
@@ -291,7 +328,7 @@ export default function AdminPage() {
                     <SelectItem value="disputed">Disputed</SelectItem>
                     <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
-                </Select>
+                </Select> */}
               </div>
             </CardContent>
           </Card>
