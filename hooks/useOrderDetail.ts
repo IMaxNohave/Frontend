@@ -270,9 +270,7 @@ export function useOrderDetail(
     ["IN_TRADE", "AWAIT_CONFIRM"].includes(
       order?.status?.toUpperCase?.() || ""
     );
-  const canCancel = ["ESCROW_HELD", "IN_TRADE", "AWAIT_CONFIRM"].includes(
-    order?.status?.toUpperCase?.() || ""
-  );
+  const canCancel = order?.status?.toUpperCase() === "ESCROW_HELD";
   const canDispute =
     (role === "buyer" || role === "seller") &&
     ["IN_TRADE", "AWAIT_CONFIRM"].includes(order.status) &&

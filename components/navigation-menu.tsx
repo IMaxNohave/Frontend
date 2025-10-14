@@ -88,7 +88,7 @@ export function NavigationMenu({ isOpen, onClose }: NavigationMenuProps) {
     },
     {
       icon: History,
-      label: "History Item",
+      label: "Transaction",
       color: "text-purple-400",
       path: "/history",
     },

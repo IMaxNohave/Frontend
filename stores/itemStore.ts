@@ -18,6 +18,8 @@ export type Item = {
   status: number;
   category: { id: string | null; name: string | null; detail: string | null };
   expiresAt?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
 };
 
 type ItemState = {
@@ -102,21 +104,28 @@ export const useItemStore = create<ItemState>()((set, get) => ({
         error?: string;
       }>("/v1/home", {
         params: {
-          // ส่งเฉพาะค่าที่มีจริง เพื่อไม่ให้ ?q= หรือ ?categoryId= ว่าง ๆ
           ...(categoryId ? { categoryId } : {}),
           ...(q ? { q } : {}),
         },
         signal,
       });
 
-      if (!res.data?.success) {
+      if (!res.data?.success)
         throw new Error(res.data?.error || "failed to fetch items");
-      }
 
       const rows: Item[] = Array.isArray(res.data.data) ? res.data.data : [];
-      set({ items: rows });
+
+      // ✅ sort ใหม่สุดก่อน: ใช้ updatedAt > createdAt > expiresAt เป็นลำดับความสำคัญ
+      const sorted = rows
+        .map((r) => {
+          const ts = r.updatedAt ?? r.createdAt ?? r.expiresAt ?? null;
+          return { ...r, __sortTs: ts ? new Date(ts).getTime() : 0 };
+        })
+        .sort((a, b) => b.__sortTs - a.__sortTs)
+        .map(({ __sortTs, ...rest }) => rest);
+
+      set({ items: sorted });
     } catch (e: any) {
-      // axios ยกเลิกจะเป็น CanceledError / ERR_CANCELED
       if (e?.name === "CanceledError" || e?.code === "ERR_CANCELED") return;
       set({ error: e?.message || "failed to fetch items" });
     } finally {
