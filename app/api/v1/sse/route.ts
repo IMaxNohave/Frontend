@@ -2,7 +2,7 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const API_BASE = process.env.API_BASE ?? "http://localhost:3000";
+const API_BASE = process.env.NGINX_PROXY;
 
 export async function GET(req: Request) {
   const u = new URL(req.url);
